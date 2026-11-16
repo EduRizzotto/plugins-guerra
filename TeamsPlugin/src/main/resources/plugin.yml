@@ -12,6 +12,26 @@ commands:
     description: Obtém as molduras exclusivas de placar de parede e gerencia os placares do lobby.
     aliases: [placares, ranking, leaderboard]
     usage: /placar [kit|clans|players|destaques|rotativo|ver|tamanho|atualizar|listar|remover|limpar]
+  berrante:
+    description: Entrega um Berrante Localizador (apenas OP/admin).
+    aliases: [horn]
+    usage: /berrante
+  airdrop:
+    description: Spawna ou gerencia Caixas de Suprimentos (apenas OP/admin).
+    aliases: [supplydrop, caixa]
+    usage: /airdrop [random|aqui|destrancar|limpar]
+  cacada:
+    description: Inicia ou controla o evento de Cacada (apenas OP/admin).
+    aliases: [hunt]
+    usage: /cacada [iniciar|agora|coords|parar]
+  quest:
+    description: Abre o painel de Quests Diarias de Equipe.
+    aliases: [quests, missoes, missao]
+    usage: /quest [resetar]
+  reliquia:
+    description: Inicia ou controla o evento Portador da Reliquia (apenas OP/admin).
+    aliases: [relic, coroa]
+    usage: /reliquia [random|aqui|ping|parar]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
