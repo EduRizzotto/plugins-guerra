@@ -164,11 +164,19 @@ public class AirDropManager {
         return count;
     }
 
-    public ActiveAirDrop getAirDropAt(Location blockLoc) {
-        if (blockLoc == null) {
+    private static Location normalizeBlockLocation(Location loc) {
+        if (loc == null || loc.getWorld() == null) {
             return null;
         }
-        return activeDrops.get(blockLoc.toBlockLocation());
+        return new Location(loc.getWorld(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+    }
+
+    public ActiveAirDrop getAirDropAt(Location blockLoc) {
+        Location norm = normalizeBlockLocation(blockLoc);
+        if (norm == null) {
+            return null;
+        }
+        return activeDrops.get(norm);
     }
 
     public CollectionView getActiveDropsCount() {
@@ -223,11 +231,11 @@ public class AirDropManager {
      * Spawna um AirDrop exatamente na posicao informada.
      */
     public ActiveAirDrop spawnAirDropAt(Location chestLocation) {
-        Location blockLoc = chestLocation.toBlockLocation();
-        World world = blockLoc.getWorld();
-        if (world == null) {
+        Location blockLoc = normalizeBlockLocation(chestLocation);
+        if (blockLoc == null) {
             return null;
         }
+        World world = blockLoc.getWorld();
 
         // Se ja havia um airdrop nessa coordenada, limpa antes
         ActiveAirDrop existing = activeDrops.get(blockLoc);
