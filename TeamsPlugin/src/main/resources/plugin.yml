@@ -1,0 +1,18 @@
+name: TeamsPlugin
+version: '1.1.0'
+main: com.eduardo.teams.TeamsPlugin
+api-version: '1.21'
+softdepend: [voicechat]
+description: Sistema completo de gerenciamento de times com GUI, Simple Voice Chat, protecao contra fogo amigo e Placares de Parede.
+commands:
+  team:
+    description: Gerencia times, abre o painel interativo ou gerencia placares (/team placar).
+    usage: /team [create|list|members|leader|tag|color|invite|accept|kick|tell|leave|disband|placar]
+  placar:
+    description: Obtém as molduras exclusivas de placar de parede e gerencia os placares do lobby.
+    aliases: [placares, ranking, leaderboard]
+    usage: /placar [kit|clans|players|destaques|rotativo|ver|tamanho|atualizar|listar|remover|limpar]
+permissions:
+  teams.admin:
+    description: Permite pegar e gerenciar as molduras de placar do servidor.
+    default: op

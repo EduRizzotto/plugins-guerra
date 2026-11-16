@@ -1,0 +1,11 @@
+name: ConstructionWandPlugin
+version: '1.1.0'
+main: com.eduardo.wand.ConstructionWandPlugin
+api-version: '1.21'
+author: Antigravity
+description: Varinhas de Construção (Ferro, Diamante e Netherita) baseadas no mod Construction Wand para PaperMC.
+commands:
+  wand:
+    description: Abre as opções da Varinha de Construção ou recebe uma varinha (OP).
+    usage: /wand [opcoes|give] [ferro|diamante|netherite]
+    aliases: [varinha, cwand]
