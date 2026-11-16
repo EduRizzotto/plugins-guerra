@@ -505,7 +505,9 @@ public class RelicManager {
      * Gancho preparado para quando definirmos a pontuacao/recompensa do time vencedor da Reliquia.
      */
     protected void onRelicWonRewardHook(Player winner, Team winnerTeam) {
-        // TODO: Adicionar pontos para a equipe vencedora (winnerTeam) quando o sistema de pontos for configurado
+        if (winnerTeam != null) {
+            teamManager.awardTeamPoints(winnerTeam, TeamManager.POINTS_RELIC_WIN, "Vitória no Portador da Relíquia por " + winner.getName());
+        }
     }
 
     public void stopEvent(boolean announceStopped) {

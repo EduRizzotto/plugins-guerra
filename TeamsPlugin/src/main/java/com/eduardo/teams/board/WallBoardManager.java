@@ -213,6 +213,7 @@ public class WallBoardManager {
 
     public record ClanRankingEntry(
             Team team,
+            int points,
             int kills,
             int deaths,
             double kdr,
@@ -751,14 +752,19 @@ public class WallBoardManager {
     }
 
     private void appendClansPanel(TextComponent.Builder out, List<ClanRankingEntry> clans, ServerSummary summary) {
+        int totalClanPoints = clans.stream().mapToInt(ClanRankingEntry::points).sum();
+        int totalClanKills = clans.stream().mapToInt(ClanRankingEntry::kills).sum();
+
         out.append(Component.text("🏆 ", NamedTextColor.GOLD))
                 .append(Component.text("PLACAR OFICIAL DE CLÃS", NamedTextColor.GOLD, TextDecoration.BOLD))
                 .append(Component.text(" 🏆", NamedTextColor.GOLD))
                 .append(Component.newline())
                 .append(Component.text("Clãs Ativos: ", NamedTextColor.GRAY))
                 .append(Component.text(String.valueOf(summary.totalClans()), NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text("  •  Abates em Clãs: ", NamedTextColor.GRAY))
-                .append(Component.text(String.valueOf(clans.stream().mapToInt(ClanRankingEntry::kills).sum()), NamedTextColor.GREEN, TextDecoration.BOLD))
+                .append(Component.text("  •  Pontos: ", NamedTextColor.GRAY))
+                .append(Component.text(totalClanPoints + " ⭐", NamedTextColor.GOLD, TextDecoration.BOLD))
+                .append(Component.text("  •  Abates: ", NamedTextColor.GRAY))
+                .append(Component.text(String.valueOf(totalClanKills), NamedTextColor.GREEN, TextDecoration.BOLD))
                 .append(Component.newline())
                 .append(Component.newline());
 
@@ -770,7 +776,7 @@ public class WallBoardManager {
             return;
         }
 
-        int maxKills = Math.max(1, clans.stream().mapToInt(ClanRankingEntry::kills).max().orElse(1));
+        int maxPoints = Math.max(1, clans.stream().mapToInt(ClanRankingEntry::points).max().orElse(1));
         int limit = Math.min(6, clans.size());
 
         for (int i = 0; i < limit; i++) {
@@ -782,8 +788,9 @@ public class WallBoardManager {
                     .append(Component.text(" "))
                     .append(team.getFormattedTag())
                     .append(Component.text(" " + team.getName(), NamedTextColor.WHITE, TextDecoration.BOLD))
-                    .append(Component.text("  ", NamedTextColor.DARK_GRAY))
-                    .append(buildBar(entry.kills(), maxKills, 8, team.getColor()))
+                    .append(Component.text("  ⭐ ", NamedTextColor.GOLD))
+                    .append(Component.text(entry.points() + " pts ", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(buildBar(entry.points(), maxPoints, 8, team.getColor()))
                     .append(Component.newline())
                     .append(Component.text("   ⚔ ", NamedTextColor.GREEN))
                     .append(Component.text(entry.kills() + " Kills", NamedTextColor.GREEN, TextDecoration.BOLD))
@@ -884,7 +891,7 @@ public class WallBoardManager {
             ClanRankingEntry top = summary.topClan();
             out.append(top.team().getFormattedTag())
                     .append(Component.text(" " + top.team().getName(), NamedTextColor.WHITE, TextDecoration.BOLD))
-                    .append(Component.text(" (" + top.kills() + "⚔ / " + top.deaths() + "☠ • KDR " + formatKdr(top.kdr()) + ")", NamedTextColor.YELLOW));
+                    .append(Component.text(" (⭐ " + top.points() + " pts • " + top.kills() + "⚔ / " + top.deaths() + "☠ • KDR " + formatKdr(top.kdr()) + ")", NamedTextColor.YELLOW));
         } else {
             out.append(Component.text("Nenhum", NamedTextColor.GRAY));
         }
@@ -936,8 +943,10 @@ public class WallBoardManager {
         if (summary.topClan() != null && summary.runnerUpClan() != null) {
             ClanRankingEntry c1 = summary.topClan();
             ClanRankingEntry c2 = summary.runnerUpClan();
-            int totalRivalryKills = Math.max(1, c1.kills() + c2.kills());
-            int c1Blocks = (int) Math.round((c1.kills() * 12.0) / totalRivalryKills);
+            int totalRivalryPts = Math.max(1, c1.points() + c2.points());
+            int c1Blocks = (c1.points() + c2.points() == 0)
+                    ? 6
+                    : (int) Math.round((c1.points() * 12.0) / totalRivalryPts);
             c1Blocks = Math.max(1, Math.min(11, c1Blocks));
             int c2Blocks = 12 - c1Blocks;
 
@@ -945,10 +954,10 @@ public class WallBoardManager {
                     .append(Component.text("🔥 RIVALIDADE PRINCIPAL DE CLÃS 🔥", NamedTextColor.GOLD, TextDecoration.BOLD))
                     .append(Component.newline())
                     .append(c1.team().getFormattedTag())
-                    .append(Component.text(" " + c1.kills() + "⚔ ", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    .append(Component.text(" " + c1.points() + "⭐ (" + c1.kills() + "⚔) ", NamedTextColor.YELLOW, TextDecoration.BOLD))
                     .append(Component.text("■".repeat(c1Blocks), c1.team().getColor()))
                     .append(Component.text("■".repeat(c2Blocks), c2.team().getColor()))
-                    .append(Component.text(" " + c2.kills() + "⚔ ", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    .append(Component.text(" " + c2.points() + "⭐ (" + c2.kills() + "⚔) ", NamedTextColor.YELLOW, TextDecoration.BOLD))
                     .append(c2.team().getFormattedTag())
                     .append(Component.newline());
         }
@@ -1048,6 +1057,7 @@ public class WallBoardManager {
     public List<ClanRankingEntry> collectClanRankings() {
         List<ClanRankingEntry> list = new ArrayList<>();
         for (Team team : teamManager.getAllTeams()) {
+            int points = teamManager.getTeamPoints(team);
             int kills = teamManager.getTeamTotalKills(team);
             int deaths = teamManager.getTeamTotalDeaths(team);
             double kdr = deaths == 0 ? kills : (double) kills / deaths;
@@ -1063,6 +1073,7 @@ public class WallBoardManager {
             String leaderName = resolvePlayerName(team.getLeader());
             list.add(new ClanRankingEntry(
                     team,
+                    points,
                     kills,
                     deaths,
                     kdr,
@@ -1074,7 +1085,8 @@ public class WallBoardManager {
         }
 
         list.sort(Comparator
-                .comparingInt(ClanRankingEntry::kills).reversed()
+                .comparingInt(ClanRankingEntry::points).reversed()
+                .thenComparing(Comparator.comparingInt(ClanRankingEntry::kills).reversed())
                 .thenComparing(Comparator.comparingDouble(ClanRankingEntry::kdr).reversed())
                 .thenComparingInt(ClanRankingEntry::deaths)
                 .thenComparing(e -> e.team().getName().toLowerCase(Locale.ROOT)));
@@ -1201,6 +1213,8 @@ public class WallBoardManager {
                 Material bannerMat = getBannerForColor(c.team().getColor());
                 List<Component> lore = new ArrayList<>();
                 lore.add(Component.text("Posição no Ranking: #" + (i + 1), NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("⭐ Pontos do Clã: ", NamedTextColor.GOLD)
+                        .append(Component.text(c.points() + " pts", NamedTextColor.YELLOW, TextDecoration.BOLD)).decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.empty());
                 lore.add(Component.text("⚔ Abates do Clã: ", NamedTextColor.GRAY)
                         .append(Component.text(String.valueOf(c.kills()), NamedTextColor.GREEN, TextDecoration.BOLD)).decoration(TextDecoration.ITALIC, false));
@@ -1284,6 +1298,7 @@ public class WallBoardManager {
                     summary.topClan() != null
                             ? List.of(
                             Component.text("Clã: ", NamedTextColor.GRAY).append(summary.topClan().team().getFormattedTag()).append(Component.text(" " + summary.topClan().team().getName(), NamedTextColor.WHITE)),
+                            Component.text("Pontos: " + summary.topClan().points() + " ⭐", NamedTextColor.GOLD),
                             Component.text("Abates: " + summary.topClan().kills() + " ⚔", NamedTextColor.GREEN),
                             Component.text("Mortes: " + summary.topClan().deaths() + " ☠", NamedTextColor.RED),
                             Component.text("KDR: " + formatKdr(summary.topClan().kdr()), NamedTextColor.YELLOW),
@@ -1516,17 +1531,17 @@ public class WallBoardManager {
             canvas.drawText(10, 10, MinecraftFont.Font, title);
 
             if (tab == BoardType.CLANS) {
-                int maxKills = Math.max(1, clans.stream().mapToInt(ClanRankingEntry::kills).max().orElse(1));
+                int maxPoints = Math.max(1, clans.stream().mapToInt(ClanRankingEntry::points).max().orElse(1));
                 int y = 32;
                 int limit = Math.min(4, clans.size());
                 for (int i = 0; i < limit; i++) {
                     ClanRankingEntry c = clans.get(i);
-                    String line = (i + 1) + ".[" + sanitizeAscii(c.team().getTag()) + "] " + c.kills() + "K/" + c.deaths() + "D";
+                    String line = (i + 1) + ".[" + sanitizeAscii(c.team().getTag()) + "] " + c.points() + "P " + c.kills() + "K";
                     canvas.drawText(6, y, MinecraftFont.Font, line);
 
                     // Draw horizontal bar
                     fillRect(canvas, 6, y + 10, 114, 6, barBg);
-                    int barW = Math.max(4, (int) Math.round((c.kills() * 114.0) / maxKills));
+                    int barW = Math.max(4, (int) Math.round((c.points() * 114.0) / maxPoints));
                     java.awt.Color barColor = matchAdventureColor(c.team().getColor(), gold);
                     fillRect(canvas, 6, y + 10, Math.min(114, barW), 6, barColor);
                     y += 22;

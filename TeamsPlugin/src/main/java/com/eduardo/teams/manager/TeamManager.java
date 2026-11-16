@@ -44,6 +44,12 @@ public class TeamManager {
     public record PlayerStats(int kills, int deaths) {}
     private record CombatTag(UUID attackerId, long timestamp) {}
 
+    public static final int POINTS_PVP_KILL = 20;
+    public static final int POINTS_AIRDROP_FIRST = 15;
+    public static final int POINTS_HUNT_KILL_PREY = 50;
+    public static final int POINTS_HUNT_SURVIVE = 40;
+    public static final int POINTS_RELIC_WIN = 60;
+
     private static final long COMBAT_TAG_DURATION_MS = 15_000L;
     private final Map<UUID, PlayerStats> playerStatsMap = new HashMap<>();
     private final Map<UUID, CombatTag> lastDamageMap = new HashMap<>();
@@ -170,20 +176,45 @@ public class TeamManager {
         return playerStatsMap.getOrDefault(playerId, new PlayerStats(0, 0));
     }
 
-    public int getTeamTotalKills(Team team) {
-        int total = 0;
-        for (UUID memberId : team.getMembers()) {
-            total += getPlayerStats(memberId).kills();
+    public int getTeamPoints(Team team) {
+        return team != null ? team.getPoints() : 0;
+    }
+
+    /**
+     * Adiciona pontos permanentes para uma equipe, avisa os membros online e salva no arquivo.
+     * Mesmo que um jogador saia do time depois, esses pontos permanecem na equipe.
+     */
+    public void awardTeamPoints(Team team, int pointsToAdd, String reason) {
+        if (team == null || pointsToAdd <= 0) {
+            return;
         }
-        return total;
+        team.addPoints(pointsToAdd);
+        saveTeams();
+
+        Component msg = Component.text("⭐ [+" + pointsToAdd + " pts] ", NamedTextColor.GOLD)
+                .append(Component.text(reason + " ", NamedTextColor.YELLOW))
+                .append(Component.text("(Total da equipe: " + team.getPoints() + " pts)", NamedTextColor.GREEN));
+
+        for (UUID memberId : team.getMembers()) {
+            Player member = Bukkit.getPlayer(memberId);
+            if (member != null && member.isOnline()) {
+                member.sendMessage(msg);
+            }
+        }
+    }
+
+    public int getTeamTotalKills(Team team) {
+        if (team == null) {
+            return 0;
+        }
+        return team.getTeamKills();
     }
 
     public int getTeamTotalDeaths(Team team) {
-        int total = 0;
-        for (UUID memberId : team.getMembers()) {
-            total += getPlayerStats(memberId).deaths();
+        if (team == null) {
+            return 0;
         }
-        return total;
+        return team.getTeamDeaths();
     }
 
     /**
@@ -211,19 +242,44 @@ public class TeamManager {
     }
 
     /**
-     * Contabiliza 1 kill para o assassino e 1 morte para a vitima (em PvP), atualizando o Tab e salvando.
+     * Contabiliza 1 kill para o assassino e 1 morte para a vitima (em PvP),
+     * somando +20 pontos permanentes na equipe do assassino (morrer em PvP = 0 pts perdidos).
      */
     public void recordPvpKillAndDeath(UUID killerId, UUID victimId) {
         if (killerId != null && !killerId.equals(victimId)) {
             PlayerStats killerStats = getPlayerStats(killerId);
             playerStatsMap.put(killerId, new PlayerStats(killerStats.kills() + 1, killerStats.deaths()));
             updatePlayerDisplay(Bukkit.getPlayer(killerId));
+
+            if (!isSameTeam(killerId, victimId)) {
+                Team killerTeam = getPlayerTeam(killerId);
+                if (killerTeam != null) {
+                    killerTeam.incrementTeamKills();
+                    killerTeam.addPoints(POINTS_PVP_KILL);
+                    Player victimPlayer = victimId != null ? Bukkit.getPlayer(victimId) : null;
+                    String victimName = victimPlayer != null ? victimPlayer.getName() : "inimigo";
+                    Component msg = Component.text("⭐ [+" + POINTS_PVP_KILL + " pts] ", NamedTextColor.GOLD)
+                            .append(Component.text("Abate PvP sobre " + victimName + " ", NamedTextColor.YELLOW))
+                            .append(Component.text("(Total da equipe: " + killerTeam.getPoints() + " pts)", NamedTextColor.GREEN));
+                    for (UUID memberId : killerTeam.getMembers()) {
+                        Player m = Bukkit.getPlayer(memberId);
+                        if (m != null && m.isOnline()) {
+                            m.sendMessage(msg);
+                        }
+                    }
+                }
+            }
         }
 
         if (victimId != null) {
             PlayerStats victimStats = getPlayerStats(victimId);
             playerStatsMap.put(victimId, new PlayerStats(victimStats.kills(), victimStats.deaths() + 1));
             updatePlayerDisplay(Bukkit.getPlayer(victimId));
+
+            Team victimTeam = getPlayerTeam(victimId);
+            if (victimTeam != null) {
+                victimTeam.incrementTeamDeaths();
+            }
         }
 
         saveTeams();
@@ -335,6 +391,23 @@ public class TeamManager {
                 playerTeamMap.put(mId, team);
             }
             playerTeamMap.put(leaderId, team);
+
+            int fallbackKills = 0;
+            int fallbackDeaths = 0;
+            for (UUID mId : team.getMembers()) {
+                PlayerStats ps = getPlayerStats(mId);
+                fallbackKills += ps.kills();
+                fallbackDeaths += ps.deaths();
+            }
+
+            int savedTeamKills = sec.contains("teamKills") ? sec.getInt("teamKills", fallbackKills) : fallbackKills;
+            int savedTeamDeaths = sec.contains("teamDeaths") ? sec.getInt("teamDeaths", fallbackDeaths) : fallbackDeaths;
+            int savedPoints = sec.contains("points") ? sec.getInt("points", 0) : (savedTeamKills * POINTS_PVP_KILL);
+
+            team.setTeamKills(savedTeamKills);
+            team.setTeamDeaths(savedTeamDeaths);
+            team.setPoints(savedPoints);
+
             teamsByName.put(name.toLowerCase(Locale.ROOT), team);
         }
     }
@@ -353,6 +426,9 @@ public class TeamManager {
             storageConfig.set(path + ".tag", team.getTag());
             storageConfig.set(path + ".color", team.getColor().toString());
             storageConfig.set(path + ".leader", team.getLeader().toString());
+            storageConfig.set(path + ".points", team.getPoints());
+            storageConfig.set(path + ".teamKills", team.getTeamKills());
+            storageConfig.set(path + ".teamDeaths", team.getTeamDeaths());
             List<String> memberIds = team.getMembers().stream().map(UUID::toString).toList();
             storageConfig.set(path + ".members", memberIds);
         }

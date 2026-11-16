@@ -130,7 +130,11 @@ public class QuestGui {
                     .append(Component.text("O progresso é somado entre todos do time!", NamedTextColor.AQUA))
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("• ", NamedTextColor.DARK_GRAY)
-                    .append(Component.text("2 Fáceis, 2 Médias e 1 Difícil por dia", NamedTextColor.WHITE))
+                    .append(Component.text("Fácil: +10 pts │ Média: +15 pts │ Difícil: +30 pts", NamedTextColor.WHITE))
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("• ", NamedTextColor.DARK_GRAY)
+                    .append(Component.text("Bônus 5/5 concluídas: ", NamedTextColor.GOLD))
+                    .append(Component.text("1.5x (120 pts totais!)", NamedTextColor.GREEN, TextDecoration.BOLD))
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("• ", NamedTextColor.DARK_GRAY)
                     .append(Component.text("Reseta às 00:00 (faltam ", NamedTextColor.GRAY))
@@ -163,6 +167,9 @@ public class QuestGui {
 
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text(quest.getDescription(), NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("Recompensa: ", NamedTextColor.GRAY)
+                    .append(Component.text("+" + diff.getPoints() + " pts para a equipe", NamedTextColor.GOLD, TextDecoration.BOLD))
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.empty());
             lore.add(Component.text("Progresso da Equipe: ", NamedTextColor.WHITE)

@@ -483,6 +483,9 @@ public class HuntManager {
      * Gancho pronto para quando implementarmos o sistema de pontos por equipe.
      */
     protected void onPreyKilledRewardHook(Player killer, Team killerTeam, Player prey, Team preyTeam) {
+        if (killerTeam != null && !killerTeam.equals(preyTeam)) {
+            teamManager.awardTeamPoints(killerTeam, TeamManager.POINTS_HUNT_KILL_PREY, "Abate da Presa " + prey.getName() + " na Caçada");
+        }
         if (questManager != null && killer != null) {
             questManager.recordAction(killer, QuestActionType.SERVER_KILL_PREY, null, null, 1);
         }
@@ -492,6 +495,9 @@ public class HuntManager {
      * Gancho pronto para quando uma presa sobrevive os 30 minutos inteiros.
      */
     protected void onPreySurvivedRewardHook(Player survivor, Team survivorTeam) {
+        if (survivorTeam != null) {
+            teamManager.awardTeamPoints(survivorTeam, TeamManager.POINTS_HUNT_SURVIVE, "Presa " + survivor.getName() + " sobreviveu aos 30 min da Caçada");
+        }
         if (questManager != null && survivorTeam != null) {
             questManager.recordTeamAction(survivorTeam, survivor, QuestActionType.SERVER_SURVIVE_HUNT, null, null, 1);
         }

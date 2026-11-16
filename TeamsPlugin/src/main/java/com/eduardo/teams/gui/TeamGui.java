@@ -220,6 +220,7 @@ public class TeamGui {
             OfflinePlayer leaderOffline = Bukkit.getOfflinePlayer(team.getLeader());
             String leaderName = leaderOffline.getName() != null ? leaderOffline.getName() : "Desconhecido";
             boolean isLeader = team.isLeader(player.getUniqueId());
+            int teamPoints = teamManager.getTeamPoints(team);
             int teamKills = teamManager.getTeamTotalKills(team);
             int teamDeaths = teamManager.getTeamTotalDeaths(team);
             double teamKdr = teamDeaths == 0 ? teamKills : (double) teamKills / teamDeaths;
@@ -231,6 +232,10 @@ public class TeamGui {
                             .append(team.getFormattedTag())
                             .decoration(TextDecoration.ITALIC, false),
                     List.of(
+                            Component.text("⭐ Pontos da Equipe: ", NamedTextColor.GOLD)
+                                    .append(Component.text(teamPoints + " pts", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                                    .decoration(TextDecoration.ITALIC, false),
+                            Component.empty(),
                             Component.text("Lider: ", NamedTextColor.GRAY)
                                     .append(Component.text(leaderName, NamedTextColor.YELLOW))
                                     .decoration(TextDecoration.ITALIC, false),
@@ -538,6 +543,7 @@ public class TeamGui {
             }
             OfflinePlayer leader = Bukkit.getOfflinePlayer(team.getLeader());
             String leaderName = leader.getName() != null ? leader.getName() : "Desconhecido";
+            int tPoints = teamManager.getTeamPoints(team);
             int tKills = teamManager.getTeamTotalKills(team);
             int tDeaths = teamManager.getTeamTotalDeaths(team);
 
@@ -547,6 +553,9 @@ public class TeamGui {
                             .append(team.getFormattedTag())
                             .decoration(TextDecoration.ITALIC, false),
                     List.of(
+                            Component.text("⭐ Pontos: ", NamedTextColor.GOLD)
+                                    .append(Component.text(tPoints + " pts", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                                    .decoration(TextDecoration.ITALIC, false),
                             Component.text("Lider: ", NamedTextColor.GRAY)
                                     .append(Component.text(leaderName, NamedTextColor.YELLOW))
                                     .decoration(TextDecoration.ITALIC, false),

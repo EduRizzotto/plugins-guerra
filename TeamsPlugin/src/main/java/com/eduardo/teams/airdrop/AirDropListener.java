@@ -134,6 +134,9 @@ public class AirDropListener implements Listener {
                 questManager.recordAction(player, QuestActionType.SERVER_OPEN_AIRDROP, null, null, 1);
             }
             Team team = teamManager.getPlayerTeam(player.getUniqueId());
+            if (team != null) {
+                teamManager.awardTeamPoints(team, TeamManager.POINTS_AIRDROP_FIRST, "Primeiro a abrir o AirDrop");
+            }
             Component playerTag = team != null
                     ? Component.text("[" + team.getTag() + "] ", team.getColor(), TextDecoration.BOLD)
                             .append(Component.text(player.getName(), NamedTextColor.YELLOW).decoration(TextDecoration.BOLD, false))

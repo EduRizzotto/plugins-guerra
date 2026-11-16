@@ -308,10 +308,28 @@ public class QuestManager {
     }
 
     /**
-     * Gancho preparado para quando definirmos a recompensa/pontos de equipe por quest concluida.
+     * Concede os pontos da quest concluida (+10, +15 ou +30 pts) e, se o time fechou todas as 5 do dia,
+     * aplica o bonus de 1.5x (+40 pts extras, totalizando 120 pts no dia!).
      */
     protected void onTeamQuestCompletedRewardHook(Team team, QuestDefinition quest, Player completedBy) {
-        // TODO: Adicionar pontos de equipe conforme a dificuldade (EASY, MEDIUM, HARD) quando o sistema de pontos for ativado
+        int questPoints = quest.getDifficulty().getPoints();
+        teamManager.awardTeamPoints(team, questPoints, "Quest Diária [" + quest.getDifficulty().getDisplayName() + "]: " + quest.getTitle());
+
+        if (getCompletedCount(team) == 5) {
+            teamManager.awardTeamPoints(team, QuestDifficulty.ALL_FIVE_BONUS_POINTS, "Bônus 1.5x (5/5 Quests Diárias concluídas!)");
+
+            Bukkit.broadcast(
+                    Component.empty()
+                            .append(Component.newline())
+                            .append(Component.text("🏆 [BÔNUS 1.5x DE QUESTS] ", NamedTextColor.GOLD, TextDecoration.BOLD))
+                            .append(Component.text("A equipe ", NamedTextColor.YELLOW).decoration(TextDecoration.BOLD, false))
+                            .append(Component.text(team.getName() + " ", NamedTextColor.WHITE, TextDecoration.BOLD))
+                            .append(team.getFormattedTag())
+                            .append(Component.text(" completou TODAS as 5 Quests Diárias de hoje e ganhou o bônus 1.5x (+40 pts extras)!", NamedTextColor.GREEN)
+                                    .decoration(TextDecoration.BOLD, false))
+                            .append(Component.newline())
+            );
+        }
     }
 
     // =========================================================================

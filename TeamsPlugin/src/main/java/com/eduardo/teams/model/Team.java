@@ -9,7 +9,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Representa um time de jogadores no servidor.
+ * Representa um time de jogadores no servidor, incluindo pontos e estatisticas permanentes da equipe.
  */
 public class Team {
 
@@ -18,6 +18,11 @@ public class Team {
     private NamedTextColor color;
     private UUID leader;
     private final Set<UUID> members;
+
+    // Pontos e abates/mortes permanentes da equipe (nao sao perdidos se um membro sair do time)
+    private int points;
+    private int teamKills;
+    private int teamDeaths;
 
     public Team(String name, String tag, NamedTextColor color, UUID leader) {
         this.name = name;
@@ -28,6 +33,9 @@ public class Team {
         if (leader != null) {
             this.members.add(leader);
         }
+        this.points = 0;
+        this.teamKills = 0;
+        this.teamDeaths = 0;
     }
 
     public String getName() {
@@ -77,6 +85,42 @@ public class Team {
 
     public Set<UUID> getMembers() {
         return Collections.unmodifiableSet(members);
+    }
+
+    public int getPoints() {
+        return points;
+    }
+
+    public void setPoints(int points) {
+        this.points = Math.max(0, points);
+    }
+
+    public void addPoints(int amount) {
+        this.points = Math.max(0, this.points + amount);
+    }
+
+    public int getTeamKills() {
+        return teamKills;
+    }
+
+    public void setTeamKills(int teamKills) {
+        this.teamKills = Math.max(0, teamKills);
+    }
+
+    public void incrementTeamKills() {
+        this.teamKills++;
+    }
+
+    public int getTeamDeaths() {
+        return teamDeaths;
+    }
+
+    public void setTeamDeaths(int teamDeaths) {
+        this.teamDeaths = Math.max(0, teamDeaths);
+    }
+
+    public void incrementTeamDeaths() {
+        this.teamDeaths++;
     }
 
     /**
