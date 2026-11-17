@@ -9,6 +9,8 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -20,9 +22,10 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Gerencia as Bussolas Encantadas Temporarias de Eventos (AirDrop, Portador da Reliquia e Cacada):
+ * Gerencia as Bussolas Encantadas Temporarias de Eventos (AirDrop, Portador da Reliquia, Cacada e Dominio):
  * - Aparecem automaticamente no inventario dos jogadores quando o evento comeca.
  * - Apontam 100% do tempo em tempo real para o alvo do evento (via CompassMeta Lodestone).
+ * - Nunca duplicam ao mover pelo inventario (checa cursor, grid de craft 2x2 e remove duplicatas).
  * - Somem automaticamente do inventario de todos os jogadores assim que o evento termina.
  */
 public class EventCompassManager {
@@ -95,6 +98,7 @@ public class EventCompassManager {
     /**
      * Cria ou atualiza a Bussola Encantada do evento no inventario de um jogador,
      * apontando em tempo real para targetLocation.
+     * Verifica cursor e inventario aberto para NUNCA duplicar enquanto o jogador arrasta o item.
      */
     public void giveOrUpdatePlayerCompass(Player player, CompassEventType type, Location targetLocation, String targetLabel) {
         if (player == null || !player.isOnline() || player.isDead() || targetLocation == null) {
@@ -103,24 +107,76 @@ public class EventCompassManager {
 
         Location blockTarget = targetLocation.toBlockLocation();
         PlayerInventory inv = player.getInventory();
-        int existingSlot = findCompassSlot(inv, type);
 
-        if (existingSlot >= 0) {
-            ItemStack existing = inv.getItem(existingSlot);
-            if (existing != null && existing.getItemMeta() instanceof CompassMeta cm) {
-                Location prev = cm.getLodestone();
-                if (prev != null
-                        && Objects.equals(prev.getWorld(), blockTarget.getWorld())
-                        && prev.getBlockX() == blockTarget.getBlockX()
-                        && prev.getBlockY() == blockTarget.getBlockY()
-                        && prev.getBlockZ() == blockTarget.getBlockZ()) {
-                    return; // Ja esta apontando exatamente para este bloco
+        // 1. Se o jogador esta segurando esta bussola no cursor do mouse, nao cria outra!
+        ItemStack cursor = player.getItemOnCursor();
+        if (getCompassType(cursor) == type) {
+            if (!isPointingAtSameBlock(cursor, blockTarget)) {
+                player.setItemOnCursor(buildCompassStack(player, type, blockTarget, targetLabel));
+            }
+            // Garante que nao haja nenhuma copia extra perdida no inventario
+            removeCompassFromInventoryOnly(inv, type);
+            return;
+        }
+
+        // 2. Se o jogador colocou temporariamente no grid de craft 2x2 ou outro inventario aberto, nao cria outra!
+        Inventory top = player.getOpenInventory().getTopInventory();
+        if (top.getType() == InventoryType.CRAFTING) {
+            for (int i = 0; i < top.getSize(); i++) {
+                ItemStack topItem = top.getItem(i);
+                if (getCompassType(topItem) == type) {
+                    if (!isPointingAtSameBlock(topItem, blockTarget)) {
+                        top.setItem(i, buildCompassStack(player, type, blockTarget, targetLabel));
+                    }
+                    removeCompassFromInventoryOnly(inv, type);
+                    return;
                 }
             }
-            inv.setItem(existingSlot, buildCompassStack(player, type, blockTarget, targetLabel));
+        }
+
+        // 3. Procura a bussola no inventario e remove eventuais duplicatas antigas
+        int firstSlot = -1;
+        for (int i = 0; i < inv.getSize(); i++) {
+            if (getCompassType(inv.getItem(i)) == type) {
+                if (firstSlot < 0) {
+                    firstSlot = i;
+                } else {
+                    inv.setItem(i, null); // Remove copia duplicada
+                }
+            }
+        }
+
+        if (firstSlot >= 0) {
+            ItemStack existing = inv.getItem(firstSlot);
+            if (existing != null && existing.getAmount() > 1) {
+                existing.setAmount(1);
+            }
+            if (isPointingAtSameBlock(existing, blockTarget)) {
+                return; // Ja esta apontando exatamente para este bloco
+            }
+            inv.setItem(firstSlot, buildCompassStack(player, type, blockTarget, targetLabel));
         } else {
-            ItemStack compass = buildCompassStack(player, type, blockTarget, targetLabel);
-            inv.addItem(compass);
+            inv.addItem(buildCompassStack(player, type, blockTarget, targetLabel));
+        }
+    }
+
+    private boolean isPointingAtSameBlock(ItemStack item, Location blockTarget) {
+        if (item != null && item.getItemMeta() instanceof CompassMeta cm) {
+            Location prev = cm.getLodestone();
+            return prev != null
+                    && Objects.equals(prev.getWorld(), blockTarget.getWorld())
+                    && prev.getBlockX() == blockTarget.getBlockX()
+                    && prev.getBlockY() == blockTarget.getBlockY()
+                    && prev.getBlockZ() == blockTarget.getBlockZ();
+        }
+        return false;
+    }
+
+    private void removeCompassFromInventoryOnly(PlayerInventory inv, CompassEventType type) {
+        for (int i = 0; i < inv.getSize(); i++) {
+            if (getCompassType(inv.getItem(i)) == type) {
+                inv.setItem(i, null);
+            }
         }
     }
 
@@ -137,21 +193,21 @@ public class EventCompassManager {
     }
 
     /**
-     * Remove a bussola de um tipo especifico de evento do inventario de um jogador.
+     * Remove a bussola de um tipo especifico de evento do inventario, cursor e grid 2x2 de um jogador.
      */
     public void removeCompassFromPlayer(Player player, CompassEventType type) {
         if (player == null) {
             return;
         }
-        PlayerInventory inv = player.getInventory();
-        for (int i = 0; i < inv.getSize(); i++) {
-            ItemStack item = inv.getItem(i);
-            if (getCompassType(item) == type) {
-                inv.setItem(i, null);
-            }
-        }
+        removeCompassFromInventoryOnly(player.getInventory(), type);
         if (getCompassType(player.getItemOnCursor()) == type) {
             player.setItemOnCursor(null);
+        }
+        Inventory top = player.getOpenInventory().getTopInventory();
+        for (int i = 0; i < top.getSize(); i++) {
+            if (getCompassType(top.getItem(i)) == type) {
+                top.setItem(i, null);
+            }
         }
     }
 
@@ -169,25 +225,10 @@ public class EventCompassManager {
      */
     public void removeAllEventCompassesFromOnlinePlayers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            PlayerInventory inv = player.getInventory();
-            for (int i = 0; i < inv.getSize(); i++) {
-                if (isEventCompass(inv.getItem(i))) {
-                    inv.setItem(i, null);
-                }
-            }
-            if (isEventCompass(player.getItemOnCursor())) {
-                player.setItemOnCursor(null);
+            for (CompassEventType type : CompassEventType.values()) {
+                removeCompassFromPlayer(player, type);
             }
         }
-    }
-
-    private int findCompassSlot(PlayerInventory inv, CompassEventType type) {
-        for (int i = 0; i < inv.getSize(); i++) {
-            if (getCompassType(inv.getItem(i)) == type) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     private ItemStack buildCompassStack(Player holder, CompassEventType type, Location targetLoc, String targetLabel) {

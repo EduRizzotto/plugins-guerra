@@ -340,11 +340,36 @@ public class AirDropManager {
                     removeAirDrop(drop, true);
                 }
             }
-            if (compassManager != null) {
-                String status = drop.isUnlocked() ? "Destrancado" : ("Trancado " + drop.getSecondsUntilUnlock() + "s");
-                compassManager.giveOrUpdateAllPlayers(CompassEventType.AIRDROP, loc, status);
+        }
+
+        if (compassManager != null && !activeDrops.isEmpty()) {
+            // Atualiza cada jogador para o AirDrop mais proximo caso exista mais de 1 ativo ao mesmo tempo
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                ActiveAirDrop nearest = findNearestActiveDropFor(p);
+                if (nearest != null) {
+                    String status = nearest.isUnlocked() ? "Destrancado" : ("Trancado " + nearest.getSecondsUntilUnlock() + "s");
+                    compassManager.giveOrUpdatePlayerCompass(p, CompassEventType.AIRDROP, nearest.getBlockLocation(), status);
+                }
             }
         }
+    }
+
+    private ActiveAirDrop findNearestActiveDropFor(Player player) {
+        ActiveAirDrop best = null;
+        double bestDistSq = Double.MAX_VALUE;
+        for (ActiveAirDrop d : activeDrops.values()) {
+            Location l = d.getBlockLocation();
+            if (l.getWorld() != null && l.getWorld().equals(player.getWorld())) {
+                double dSq = player.getLocation().distanceSquared(l);
+                if (dSq < bestDistSq) {
+                    bestDistSq = dSq;
+                    best = d;
+                }
+            } else if (best == null) {
+                best = d;
+            }
+        }
+        return best;
     }
 
     public void removeAirDrop(ActiveAirDrop drop, boolean removeChestBlock) {
