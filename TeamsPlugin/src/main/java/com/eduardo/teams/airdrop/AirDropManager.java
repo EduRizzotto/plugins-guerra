@@ -399,6 +399,7 @@ public class AirDropManager {
         }
         Location holoLoc = blockLoc.clone().add(0.5, 1.45, 0.5);
         TextDisplay display = world.spawn(holoLoc, TextDisplay.class, td -> {
+            td.setPersistent(false);
             td.setBillboard(Display.Billboard.CENTER);
             td.setSeeThrough(true);
             td.setShadowed(true);

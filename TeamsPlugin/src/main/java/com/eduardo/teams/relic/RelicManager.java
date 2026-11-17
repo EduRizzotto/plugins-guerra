@@ -64,6 +64,7 @@ public class RelicManager {
     private final TeamsPlugin plugin;
     private final TeamManager teamManager;
     private final NamespacedKey relicKey;
+    private final NamespacedKey relicHologramKey;
     private EventCompassManager compassManager;
 
     private RelicState state = RelicState.IDLE;
@@ -82,6 +83,7 @@ public class RelicManager {
         this.plugin = plugin;
         this.teamManager = teamManager;
         this.relicKey = new NamespacedKey(plugin, "war_relic");
+        this.relicHologramKey = new NamespacedKey(plugin, "war_relic_hologram");
         this.tickTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
         this.autoTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (state == RelicState.IDLE && !Bukkit.getOnlinePlayers().isEmpty()) {
@@ -263,6 +265,7 @@ public class RelicManager {
         itemEntity.setVelocity(itemEntity.getVelocity().zero());
         itemEntity.setInvulnerable(true);
         itemEntity.setUnlimitedLifetime(true);
+        itemEntity.setPersistent(false);
         itemEntity.setGlowing(true);
         itemEntity.setPickupDelay(20); // 1 segundo para nao pegar instantaneamente ao morrer
         itemEntity.customName(Component.text("👑 Relíquia da Guerra", NamedTextColor.GOLD, TextDecoration.BOLD));
@@ -283,6 +286,8 @@ public class RelicManager {
 
         Location holoLoc = dropLoc.clone().add(0, 1.1, 0);
         TextDisplay display = world.spawn(holoLoc, TextDisplay.class, td -> {
+            td.setPersistent(false);
+            td.getPersistentDataContainer().set(relicHologramKey, PersistentDataType.BYTE, (byte) 1);
             td.setBillboard(Display.Billboard.CENTER);
             td.setSeeThrough(true);
             td.setShadowed(true);
@@ -294,6 +299,30 @@ public class RelicManager {
         });
         this.hologramEntityId = display.getUniqueId();
         this.lastKnownLocation = dropLoc;
+    }
+
+    /**
+     * Remove hologramas ou itens da Reliquia orfaos que tenham ficado salvos em chunks antigos.
+     */
+    public void cleanupOrphanHologramsInChunk(org.bukkit.Chunk chunk) {
+        if (chunk == null) {
+            return;
+        }
+        for (Entity entity : chunk.getEntities()) {
+            if (entity instanceof TextDisplay td) {
+                boolean hasTag = td.getPersistentDataContainer().has(relicHologramKey, PersistentDataType.BYTE);
+                String plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(td.text());
+                if (hasTag || plain.contains("RELÍQUIA DA GUERRA")) {
+                    if (state == RelicState.IDLE || !td.getUniqueId().equals(hologramEntityId)) {
+                        td.remove();
+                    }
+                }
+            } else if (entity instanceof Item item && isRelicItem(item.getItemStack())) {
+                if (state == RelicState.IDLE || !item.getUniqueId().equals(droppedItemEntityId)) {
+                    item.remove();
+                }
+            }
+        }
     }
 
     /**

@@ -24,6 +24,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -159,5 +160,10 @@ public class RelicListener implements Listener {
         if (event.getItem().getType() == Material.MILK_BUCKET && relicManager.isCarrier(player.getUniqueId())) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> relicManager.applyCarrierGlow(player), 2L);
         }
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        relicManager.cleanupOrphanHologramsInChunk(event.getChunk());
     }
 }

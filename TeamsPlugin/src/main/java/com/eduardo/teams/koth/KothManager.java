@@ -390,6 +390,7 @@ public class KothManager {
         }
         Location holoLoc = topCaptureCenter.clone().add(0, 2.6, 0);
         TextDisplay td = topCaptureCenter.getWorld().spawn(holoLoc, TextDisplay.class, display -> {
+            display.setPersistent(false);
             display.setBillboard(Display.Billboard.CENTER);
             display.setSeeThrough(true);
             display.setShadowed(true);
