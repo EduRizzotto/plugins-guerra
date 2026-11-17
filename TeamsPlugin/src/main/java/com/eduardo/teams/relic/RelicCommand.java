@@ -24,7 +24,7 @@ import java.util.Locale;
  */
 public class RelicCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBCOMMANDS = List.of("random", "aqui", "ping", "parar");
+    private static final List<String> SUBCOMMANDS = List.of("aqui", "ping", "parar");
 
     private final RelicManager relicManager;
 
@@ -44,10 +44,18 @@ public class RelicCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String sub = args.length == 0 ? "random" : args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 0) {
+            World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
+            Location loc = relicManager.spawnRandomRelic(world);
+            sender.sendMessage(
+                    Component.text("👑 Relíquia da Guerra spawnada em " + RelicManager.formatCoords(loc) + "! (Use '/reliquia aqui' para spawnar do seu lado)", NamedTextColor.GREEN)
+            );
+            return true;
+        }
 
+        String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "aqui", "here" -> {
+            case "aqui" -> {
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(Component.text("Apenas jogadores podem usar /reliquia aqui.", NamedTextColor.RED));
                     return true;
@@ -66,14 +74,14 @@ public class RelicCommand implements CommandExecutor, TabCompleter {
                 relicManager.spawnRelicAt(target);
                 player.sendMessage(Component.text("👑 Relíquia da Guerra spawnada na sua frente!", NamedTextColor.GREEN));
             }
-            case "ping", "coords" -> {
+            case "ping" -> {
                 if (relicManager.getState() == RelicState.IDLE) {
                     sender.sendMessage(Component.text("O evento Portador da Relíquia não está ativo no momento.", NamedTextColor.YELLOW));
                     return true;
                 }
                 relicManager.broadcastRelicPing();
             }
-            case "parar", "cancelar", "stop" -> {
+            case "parar" -> {
                 if (relicManager.getState() == RelicState.IDLE) {
                     sender.sendMessage(Component.text("O evento Portador da Relíquia não está ativo no momento.", NamedTextColor.YELLOW));
                     return true;
@@ -81,13 +89,9 @@ public class RelicCommand implements CommandExecutor, TabCompleter {
                 relicManager.stopEvent(true);
                 sender.sendMessage(Component.text("👑 Evento Portador da Relíquia encerrado.", NamedTextColor.GREEN));
             }
-            default -> {
-                World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
-                Location loc = relicManager.spawnRandomRelic(world);
-                sender.sendMessage(
-                        Component.text("👑 Relíquia da Guerra spawnada em " + RelicManager.formatCoords(loc) + "! (Use '/reliquia aqui' para spawnar do seu lado)", NamedTextColor.GREEN)
-                );
-            }
+            default -> sender.sendMessage(
+                    Component.text("Uso: /reliquia [aqui|ping|parar] (sem argumentos spawna aleatório)", NamedTextColor.YELLOW)
+            );
         }
 
         return true;

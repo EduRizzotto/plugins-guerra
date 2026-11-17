@@ -24,7 +24,7 @@ import java.util.Locale;
  */
 public class AirDropCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBCOMMANDS = List.of("random", "aqui", "destrancar", "limpar");
+    private static final List<String> SUBCOMMANDS = List.of("aqui", "destrancar", "limpar");
 
     private final AirDropManager airDropManager;
 
@@ -44,10 +44,20 @@ public class AirDropCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String sub = args.length == 0 ? "random" : args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 0) {
+            World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
+            ActiveAirDrop drop = airDropManager.spawnRandomAirDrop(world);
+            if (drop != null) {
+                sender.sendMessage(
+                        Component.text("📦 AirDrop spawnado aleatoriamente em " + AirDropManager.formatCoords(drop.getBlockLocation()) + "! (Use '/airdrop aqui' para spawnar do seu lado ou '/airdrop destrancar' para pular os 2 min)", NamedTextColor.GREEN)
+                );
+            }
+            return true;
+        }
 
+        String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "aqui", "here" -> {
+            case "aqui" -> {
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(Component.text("Apenas jogadores podem usar /airdrop aqui.", NamedTextColor.RED));
                     return true;
@@ -70,7 +80,7 @@ public class AirDropCommand implements CommandExecutor, TabCompleter {
                     );
                 }
             }
-            case "destrancar", "unlock" -> {
+            case "destrancar" -> {
                 var active = airDropManager.getActiveDropsCount().drops();
                 if (active.isEmpty()) {
                     sender.sendMessage(Component.text("Nao ha nenhum AirDrop ativo no momento.", NamedTextColor.YELLOW));
@@ -89,21 +99,15 @@ public class AirDropCommand implements CommandExecutor, TabCompleter {
                         Component.text("🔓 Destrancando " + unlockedCount + " AirDrop(s) ativo(s) imediatamente!", NamedTextColor.GREEN)
                 );
             }
-            case "limpar", "clear" -> {
+            case "limpar" -> {
                 int removed = airDropManager.clearAllDrops();
                 sender.sendMessage(
                         Component.text("🗑 " + removed + " AirDrop(s) removido(s) do mapa.", NamedTextColor.YELLOW)
                 );
             }
-            default -> {
-                World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
-                ActiveAirDrop drop = airDropManager.spawnRandomAirDrop(world);
-                if (drop != null) {
-                    sender.sendMessage(
-                            Component.text("📦 AirDrop spawnado aleatoriamente em " + AirDropManager.formatCoords(drop.getBlockLocation()) + "! (Use '/airdrop aqui' para spawnar do seu lado ou '/airdrop destrancar' para pular os 2 min)", NamedTextColor.GREEN)
-                    );
-                }
-            }
+            default -> sender.sendMessage(
+                    Component.text("Uso: /airdrop [aqui|destrancar|limpar] (sem argumentos spawna aleatório)", NamedTextColor.YELLOW)
+            );
         }
 
         return true;

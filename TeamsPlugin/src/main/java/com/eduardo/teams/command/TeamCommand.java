@@ -32,7 +32,7 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
             "create", "list", "members", "leader", "tag",
-            "color", "invite", "accept", "kick", "tell", "leave", "disband", "quest", "quests"
+            "color", "invite", "accept", "kick", "tell", "leave", "disband", "quest"
     );
 
     private final TeamManager teamManager;

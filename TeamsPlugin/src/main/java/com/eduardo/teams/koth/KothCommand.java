@@ -22,7 +22,7 @@ import java.util.Locale;
  */
 public class KothCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBCOMMANDS = List.of("random", "aqui", "parar");
+    private static final List<String> SUBCOMMANDS = List.of("aqui", "parar");
 
     private final KothManager kothManager;
 
@@ -42,10 +42,18 @@ public class KothCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String sub = args.length == 0 ? "random" : args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 0) {
+            World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
+            Location loc = kothManager.startRandomKoth(world);
+            sender.sendMessage(
+                    Component.text("🏰 Torre de Domínio spawnada em " + KothManager.formatCoords(loc) + "! (Use '/dominio aqui' para criar na sua frente)", NamedTextColor.GREEN)
+            );
+            return true;
+        }
 
+        String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "aqui", "here" -> {
+            case "aqui" -> {
                 if (!(sender instanceof Player player)) {
                     sender.sendMessage(Component.text("Apenas jogadores podem usar /dominio aqui.", NamedTextColor.RED));
                     return true;
@@ -60,7 +68,7 @@ public class KothCommand implements CommandExecutor, TabCompleter {
                 kothManager.startKothAt(base);
                 player.sendMessage(Component.text("🏰 Torre de Domínio construída na sua frente!", NamedTextColor.GREEN));
             }
-            case "parar", "cancelar", "stop" -> {
+            case "parar" -> {
                 if (!kothManager.isActive()) {
                     sender.sendMessage(Component.text("Não há nenhuma Torre de Domínio ativa no momento.", NamedTextColor.YELLOW));
                     return true;
@@ -68,13 +76,9 @@ public class KothCommand implements CommandExecutor, TabCompleter {
                 kothManager.stopKoth(true);
                 sender.sendMessage(Component.text("🏰 Torre de Domínio removida e terreno restaurado!", NamedTextColor.GREEN));
             }
-            default -> {
-                World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
-                Location loc = kothManager.startRandomKoth(world);
-                sender.sendMessage(
-                        Component.text("🏰 Torre de Domínio spawnada em " + KothManager.formatCoords(loc) + "! (Use '/dominio aqui' para criar na sua frente)", NamedTextColor.GREEN)
-                );
-            }
+            default -> sender.sendMessage(
+                    Component.text("Uso: /dominio [aqui|parar] (sem argumentos spawna aleatório)", NamedTextColor.YELLOW)
+            );
         }
 
         return true;

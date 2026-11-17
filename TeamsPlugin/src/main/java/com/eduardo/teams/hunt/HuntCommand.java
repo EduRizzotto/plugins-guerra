@@ -18,7 +18,7 @@ import java.util.Locale;
  */
 public class HuntCommand implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBCOMMANDS = List.of("iniciar", "agora", "coords", "horarios", "parar");
+    private static final List<String> SUBCOMMANDS = List.of("agora", "coords", "horarios", "parar");
 
     private final HuntManager huntManager;
 
@@ -38,22 +38,23 @@ public class HuntCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String sub = args.length == 0 ? "iniciar" : args[0].toLowerCase(Locale.ROOT);
-
-        switch (sub) {
-            case "iniciar", "start" -> {
-                if (huntManager.getState() != HuntState.IDLE) {
-                    sender.sendMessage(
-                            Component.text("O evento de Caçada já está em andamento! Use '/cacada agora' para pular os 5 min ou '/cacada parar' para cancelar.", NamedTextColor.YELLOW)
-                    );
-                    return true;
-                }
-                huntManager.startCountdown();
+        if (args.length == 0) {
+            if (huntManager.getState() != HuntState.IDLE) {
                 sender.sendMessage(
-                        Component.text("🎯 Contagem regressiva de 5 minutos da Caçada iniciada! (Use '/cacada agora' se quiser começar imediatamente)", NamedTextColor.GREEN)
+                        Component.text("O evento de Caçada já está em andamento! Use '/cacada agora' para pular os 5 min ou '/cacada parar' para cancelar.", NamedTextColor.YELLOW)
                 );
+                return true;
             }
-            case "agora", "pular", "now" -> {
+            huntManager.startCountdown();
+            sender.sendMessage(
+                    Component.text("🎯 Contagem regressiva de 5 minutos da Caçada iniciada! (Use '/cacada agora' se quiser começar imediatamente)", NamedTextColor.GREEN)
+            );
+            return true;
+        }
+
+        String sub = args[0].toLowerCase(Locale.ROOT);
+        switch (sub) {
+            case "agora" -> {
                 boolean started = huntManager.startHuntImmediately();
                 if (started) {
                     sender.sendMessage(
@@ -65,21 +66,21 @@ public class HuntCommand implements CommandExecutor, TabCompleter {
                     );
                 }
             }
-            case "coords", "radar" -> {
+            case "coords" -> {
                 if (huntManager.getState() != HuntState.ACTIVE) {
                     sender.sendMessage(Component.text("A Caçada ainda não está ativa no momento.", NamedTextColor.YELLOW));
                     return true;
                 }
                 huntManager.broadcastPreyCoordinates();
             }
-            case "horarios", "schedule" -> {
+            case "horarios" -> {
                 List<String> schedule = huntManager.getFormattedSchedule();
                 sender.sendMessage(
                         Component.text("🎯 Horários secretos sorteados para as 2 Caçadas de hoje: ", NamedTextColor.GOLD)
                                 .append(Component.text(String.join(" e ", schedule), NamedTextColor.AQUA))
                 );
             }
-            case "parar", "cancelar", "stop" -> {
+            case "parar" -> {
                 if (huntManager.getState() == HuntState.IDLE) {
                     sender.sendMessage(Component.text("Nenhum evento de Caçada está ativo no momento.", NamedTextColor.YELLOW));
                     return true;
@@ -88,7 +89,7 @@ public class HuntCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Component.text("🎯 Evento de Caçada encerrado com sucesso.", NamedTextColor.GREEN));
             }
             default -> sender.sendMessage(
-                    Component.text("Uso: /cacada [iniciar|agora|coords|horarios|parar]", NamedTextColor.YELLOW)
+                    Component.text("Uso: /cacada [agora|coords|horarios|parar] (sem argumentos inicia aviso de 5 min)", NamedTextColor.YELLOW)
             );
         }
 

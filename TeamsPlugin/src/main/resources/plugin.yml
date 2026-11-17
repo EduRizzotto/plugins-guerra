@@ -19,11 +19,11 @@ commands:
   airdrop:
     description: Spawna ou gerencia Caixas de Suprimentos (apenas OP/admin).
     aliases: [supplydrop, caixa]
-    usage: /airdrop [random|aqui|destrancar|limpar]
+    usage: /airdrop [aqui|destrancar|limpar]
   cacada:
     description: Inicia ou controla o evento de Cacada (apenas OP/admin).
     aliases: [hunt]
-    usage: /cacada [iniciar|agora|coords|parar]
+    usage: /cacada [agora|coords|horarios|parar]
   quest:
     description: Abre o painel de Quests Diarias de Equipe.
     aliases: [quests, missoes, missao]
@@ -31,11 +31,11 @@ commands:
   reliquia:
     description: Inicia ou controla o evento Portador da Reliquia (apenas OP/admin).
     aliases: [relic, coroa]
-    usage: /reliquia [random|aqui|ping|parar]
+    usage: /reliquia [aqui|ping|parar]
   dominio:
     description: Inicia ou controla o evento Torre de Dominio / Capture a Area (apenas OP/admin).
     aliases: [torre, koth]
-    usage: /dominio [random|aqui|parar]
+    usage: /dominio [aqui|parar]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.

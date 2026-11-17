@@ -35,9 +35,7 @@ public class QuestCommand implements CommandExecutor, TabCompleter {
             @NotNull String label,
             @NotNull String[] args
     ) {
-        if (args.length > 0 && (args[0].equalsIgnoreCase("resetar")
-                || args[0].equalsIgnoreCase("reset")
-                || args[0].equalsIgnoreCase("sortear"))) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("resetar")) {
             if (!sender.isOp() && !sender.hasPermission("teams.admin")) {
                 sender.sendMessage(Component.text("Apenas administradores (OP) podem sortear novas Quests Diárias manualmente.", NamedTextColor.RED));
                 return true;
@@ -65,7 +63,7 @@ public class QuestCommand implements CommandExecutor, TabCompleter {
     ) {
         if (args.length == 1 && (sender.isOp() || sender.hasPermission("teams.admin"))) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
-            return List.of("resetar", "sortear").stream().filter(s -> s.startsWith(prefix)).toList();
+            return "resetar".startsWith(prefix) ? List.of("resetar") : List.of();
         }
         return List.of();
     }
