@@ -47,7 +47,7 @@ public class HuntCommand implements CommandExecutor, TabCompleter {
             }
             huntManager.startCountdown();
             sender.sendMessage(
-                    Component.text("🎯 Contagem regressiva de 5 minutos da Caçada iniciada! (Use '/cacada agora' se quiser começar imediatamente)", NamedTextColor.GREEN)
+                    Component.text("🎯 Contagem regressiva de 5 minutos da Caçada iniciada!", NamedTextColor.GREEN)
             );
             return true;
         }

@@ -49,7 +49,7 @@ public class AirDropCommand implements CommandExecutor, TabCompleter {
             ActiveAirDrop drop = airDropManager.spawnRandomAirDrop(world);
             if (drop != null) {
                 sender.sendMessage(
-                        Component.text("📦 AirDrop spawnado aleatoriamente em " + AirDropManager.formatCoords(drop.getBlockLocation()) + "! (Use '/airdrop aqui' para spawnar do seu lado ou '/airdrop destrancar' para pular os 2 min)", NamedTextColor.GREEN)
+                        Component.text("📦 AirDrop spawnado aleatoriamente em " + AirDropManager.formatCoords(drop.getBlockLocation()) + "!", NamedTextColor.GREEN)
                 );
             }
             return true;

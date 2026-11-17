@@ -48,7 +48,7 @@ public class RelicCommand implements CommandExecutor, TabCompleter {
             World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
             Location loc = relicManager.spawnRandomRelic(world);
             sender.sendMessage(
-                    Component.text("👑 Relíquia da Guerra spawnada em " + RelicManager.formatCoords(loc) + "! (Use '/reliquia aqui' para spawnar do seu lado)", NamedTextColor.GREEN)
+                    Component.text("👑 Relíquia da Guerra spawnada em " + RelicManager.formatCoords(loc) + "!", NamedTextColor.GREEN)
             );
             return true;
         }

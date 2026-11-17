@@ -46,7 +46,7 @@ public class KothCommand implements CommandExecutor, TabCompleter {
             World world = sender instanceof Player p ? p.getWorld() : Bukkit.getWorlds().getFirst();
             Location loc = kothManager.startRandomKoth(world);
             sender.sendMessage(
-                    Component.text("🏰 Torre de Domínio spawnada em " + KothManager.formatCoords(loc) + "! (Use '/dominio aqui' para criar na sua frente)", NamedTextColor.GREEN)
+                    Component.text("🏰 Torre de Domínio spawnada em " + KothManager.formatCoords(loc) + "!", NamedTextColor.GREEN)
             );
             return true;
         }
