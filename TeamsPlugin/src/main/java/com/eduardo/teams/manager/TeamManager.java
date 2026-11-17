@@ -10,6 +10,8 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -121,6 +123,7 @@ public class TeamManager {
         if (voicechatIntegration != null) {
             voicechatIntegration.removeTeamGroup(team);
         }
+        unregisterScoreboardTeam(team);
         teamsByName.remove(team.getName().toLowerCase(Locale.ROOT));
         for (UUID memberId : team.getMembers()) {
             playerTeamMap.remove(memberId);
@@ -308,6 +311,7 @@ public class TeamManager {
         Component statsSuffix = Component.text(" ").append(formatStatsBracket(stats.kills(), stats.deaths()));
 
         Team team = getPlayerTeam(player.getUniqueId());
+        syncPlayerScoreboardTeam(player, team);
         if (team != null) {
             Component tabName = team.getFormattedTag()
                     .append(Component.text(" " + player.getName(), NamedTextColor.WHITE))
@@ -318,6 +322,60 @@ public class TeamManager {
                     Component.text(player.getName(), NamedTextColor.WHITE)
                             .append(statsSuffix)
             );
+        }
+    }
+
+    private String toScoreboardTeamName(Team team) {
+        return "tp_" + team.getName().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Sincroniza o jogador no Scoreboard Team correspondente para que o efeito GLOWING
+     * apareca exatamente na cor escolhida pelo time.
+     */
+    private void syncPlayerScoreboardTeam(Player player, Team team) {
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        if (manager == null) {
+            return;
+        }
+        Scoreboard scoreboard = manager.getMainScoreboard();
+        String entry = player.getName();
+
+        org.bukkit.scoreboard.Team currentSbTeam = scoreboard.getEntryTeam(entry);
+        if (team == null) {
+            if (currentSbTeam != null && currentSbTeam.getName().startsWith("tp_")) {
+                currentSbTeam.removeEntry(entry);
+            }
+            return;
+        }
+
+        String sbName = toScoreboardTeamName(team);
+        org.bukkit.scoreboard.Team sbTeam = scoreboard.getTeam(sbName);
+        if (sbTeam == null) {
+            sbTeam = scoreboard.registerNewTeam(sbName);
+        }
+        sbTeam.color(team.getColor());
+        sbTeam.setAllowFriendlyFire(true);
+
+        if (currentSbTeam != null && !currentSbTeam.equals(sbTeam) && currentSbTeam.getName().startsWith("tp_")) {
+            currentSbTeam.removeEntry(entry);
+        }
+        if (!sbTeam.hasEntry(entry)) {
+            sbTeam.addEntry(entry);
+        }
+    }
+
+    private void unregisterScoreboardTeam(Team team) {
+        if (team == null) {
+            return;
+        }
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        if (manager == null) {
+            return;
+        }
+        org.bukkit.scoreboard.Team sbTeam = manager.getMainScoreboard().getTeam(toScoreboardTeamName(team));
+        if (sbTeam != null) {
+            sbTeam.unregister();
         }
     }
 

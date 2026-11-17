@@ -269,6 +269,18 @@ public class RelicManager {
         itemEntity.setCustomNameVisible(true);
         this.droppedItemEntityId = itemEntity.getUniqueId();
 
+        // Aplica cor Dourada no Glowing da Reliquia dropada no chao
+        var sbManager = Bukkit.getScoreboardManager();
+        if (sbManager != null) {
+            var sb = sbManager.getMainScoreboard();
+            var relicSbTeam = sb.getTeam("tp_relic");
+            if (relicSbTeam == null) {
+                relicSbTeam = sb.registerNewTeam("tp_relic");
+            }
+            relicSbTeam.color(NamedTextColor.GOLD);
+            relicSbTeam.addEntity(itemEntity);
+        }
+
         Location holoLoc = dropLoc.clone().add(0, 1.1, 0);
         TextDisplay display = world.spawn(holoLoc, TextDisplay.class, td -> {
             td.setBillboard(Display.Billboard.CENTER);
