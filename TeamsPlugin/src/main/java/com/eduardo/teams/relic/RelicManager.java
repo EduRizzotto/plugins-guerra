@@ -586,7 +586,11 @@ public class RelicManager {
         if (lastKnownLocation == null || lastKnownLocation.getWorld() == null) {
             return;
         }
-        lastKnownLocation.getWorld().spawnParticle(
+        World w = lastKnownLocation.getWorld();
+        if (!w.isChunkLoaded(lastKnownLocation.getBlockX() >> 4, lastKnownLocation.getBlockZ() >> 4)) {
+            return;
+        }
+        w.spawnParticle(
                 Particle.END_ROD,
                 lastKnownLocation.clone().add(0, 0.5, 0),
                 6, 0.25, 0.4, 0.25, 0.02
@@ -594,19 +598,22 @@ public class RelicManager {
     }
 
     private void ensureDroppedEntityValid() {
-        if (droppedItemEntityId == null && lastKnownLocation != null) {
+        if (lastKnownLocation == null || lastKnownLocation.getWorld() == null) {
+            return;
+        }
+        World w = lastKnownLocation.getWorld();
+        if (!w.isChunkLoaded(lastKnownLocation.getBlockX() >> 4, lastKnownLocation.getBlockZ() >> 4)) {
+            return;
+        }
+        if (droppedItemEntityId == null) {
             dropRelicEntityAt(lastKnownLocation);
             return;
         }
-        if (droppedItemEntityId != null) {
-            Entity ent = Bukkit.getEntity(droppedItemEntityId);
-            if (ent == null || !ent.isValid()) {
-                if (lastKnownLocation != null) {
-                    dropRelicEntityAt(lastKnownLocation);
-                }
-            } else {
-                lastKnownLocation = ent.getLocation();
-            }
+        Entity ent = Bukkit.getEntity(droppedItemEntityId);
+        if (ent == null || !ent.isValid()) {
+            dropRelicEntityAt(lastKnownLocation);
+        } else {
+            lastKnownLocation = ent.getLocation();
         }
     }
 

@@ -286,7 +286,13 @@ public class AirDropManager {
         for (ActiveAirDrop drop : new ArrayList<>(activeDrops.values())) {
             Location loc = drop.getBlockLocation();
             World world = loc.getWorld();
-            if (world == null || loc.getBlock().getType() != Material.CHEST) {
+            if (world == null) {
+                removeAirDrop(drop, false);
+                continue;
+            }
+
+            boolean chunkLoaded = world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
+            if (chunkLoaded && loc.getBlock().getType() != Material.CHEST) {
                 removeAirDrop(drop, false);
                 continue;
             }
@@ -295,15 +301,19 @@ public class AirDropManager {
 
             if (!drop.isUnlocked()) {
                 drop.decrementUnlockTimer();
-                world.spawnParticle(Particle.FLAME, particleLoc, 8, 0.3, 0.3, 0.3, 0.02);
-                world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, particleLoc.clone().add(0, 0.5, 0), 3, 0.15, 0.4, 0.15, 0.01);
+                if (chunkLoaded) {
+                    world.spawnParticle(Particle.FLAME, particleLoc, 6, 0.3, 0.3, 0.3, 0.02);
+                    world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, particleLoc.clone().add(0, 0.5, 0), 2, 0.15, 0.4, 0.15, 0.01);
+                }
 
                 if (drop.getSecondsUntilUnlock() <= 0) {
                     drop.setUnlocked(true);
-                    world.playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, SoundCategory.BLOCKS, 3.0f, 1.2f);
-                    world.playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.BLOCKS, 2.0f, 1.0f);
-                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, particleLoc, 40, 0.5, 0.6, 0.5, 0.15);
-                    updateHologram(drop);
+                    if (chunkLoaded) {
+                        world.playSound(loc, Sound.BLOCK_BEACON_POWER_SELECT, SoundCategory.BLOCKS, 3.0f, 1.2f);
+                        world.playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.BLOCKS, 2.0f, 1.0f);
+                        world.spawnParticle(Particle.TOTEM_OF_UNDYING, particleLoc, 30, 0.5, 0.6, 0.5, 0.15);
+                        updateHologram(drop);
+                    }
                     broadcastDropUnlocked(loc);
                 } else {
                     if (drop.getSecondsUntilUnlock() == 60 || drop.getSecondsUntilUnlock() == 30) {
@@ -316,15 +326,18 @@ public class AirDropManager {
                                                 .decoration(TextDecoration.BOLD, false))
                         );
                     }
-                    updateHologram(drop);
+                    if (chunkLoaded) {
+                        updateHologram(drop);
+                    }
                 }
             } else {
-                world.spawnParticle(Particle.HAPPY_VILLAGER, particleLoc, 6, 0.35, 0.35, 0.35, 0.02);
+                if (chunkLoaded) {
+                    world.spawnParticle(Particle.HAPPY_VILLAGER, particleLoc, 4, 0.35, 0.35, 0.35, 0.02);
+                    updateHologramIfMissing(drop);
+                }
                 drop.decrementDespawnTimer();
                 if (drop.getSecondsUntilDespawn() <= 0) {
                     removeAirDrop(drop, true);
-                } else {
-                    updateHologram(drop);
                 }
             }
             if (compassManager != null) {
@@ -370,18 +383,42 @@ public class AirDropManager {
         return display.getUniqueId();
     }
 
-    private void updateHologram(ActiveAirDrop drop) {
+    private void updateHologramIfMissing(ActiveAirDrop drop) {
         UUID id = drop.getHologramId();
-        if (id == null) {
+        if (id != null) {
+            Entity entity = Bukkit.getEntity(id);
+            if (entity instanceof TextDisplay td && td.isValid()) {
+                return;
+            }
+        }
+        updateHologram(drop);
+    }
+
+    private void updateHologram(ActiveAirDrop drop) {
+        Location loc = drop.getBlockLocation();
+        World world = loc.getWorld();
+        if (world == null || !world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
             return;
         }
-        Entity entity = Bukkit.getEntity(id);
-        if (entity instanceof TextDisplay td && td.isValid()) {
-            td.text(buildHologramText(drop.getSecondsUntilUnlock(), drop.isUnlocked()));
-        } else {
-            UUID newId = spawnHologram(drop.getBlockLocation(), drop.getSecondsUntilUnlock(), drop.isUnlocked());
-            drop.setHologramId(newId);
+        UUID id = drop.getHologramId();
+        if (id != null) {
+            Entity entity = Bukkit.getEntity(id);
+            if (entity instanceof TextDisplay td && td.isValid()) {
+                td.text(buildHologramText(drop.getSecondsUntilUnlock(), drop.isUnlocked()));
+                return;
+            }
         }
+        // Procura se ja existe algum TextDisplay na posicao antes de criar outro, evitando empilhamento
+        Location holoLoc = loc.clone().add(0.5, 1.45, 0.5);
+        for (Entity nearby : world.getNearbyEntities(holoLoc, 1.0, 1.5, 1.0)) {
+            if (nearby instanceof TextDisplay td && td.isValid()) {
+                drop.setHologramId(td.getUniqueId());
+                td.text(buildHologramText(drop.getSecondsUntilUnlock(), drop.isUnlocked()));
+                return;
+            }
+        }
+        UUID newId = spawnHologram(loc, drop.getSecondsUntilUnlock(), drop.isUnlocked());
+        drop.setHologramId(newId);
     }
 
     private void removeHologram(UUID id) {
