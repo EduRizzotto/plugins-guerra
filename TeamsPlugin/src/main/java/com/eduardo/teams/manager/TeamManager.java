@@ -49,6 +49,7 @@ public class TeamManager {
     public static final int POINTS_HUNT_KILL_PREY = 50;
     public static final int POINTS_HUNT_SURVIVE = 40;
     public static final int POINTS_RELIC_WIN = 60;
+    public static final int POINTS_KOTH_WIN = 50;
 
     private static final long COMBAT_TAG_DURATION_MS = 15_000L;
     private final Map<UUID, PlayerStats> playerStatsMap = new HashMap<>();

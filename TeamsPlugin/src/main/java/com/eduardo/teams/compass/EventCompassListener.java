@@ -85,6 +85,7 @@ public class EventCompassListener implements Listener {
         compassManager.removeCompassFromPlayer(event.getPlayer(), EventCompassManager.CompassEventType.AIRDROP);
         compassManager.removeCompassFromPlayer(event.getPlayer(), EventCompassManager.CompassEventType.RELIC);
         compassManager.removeCompassFromPlayer(event.getPlayer(), EventCompassManager.CompassEventType.HUNT);
+        compassManager.removeCompassFromPlayer(event.getPlayer(), EventCompassManager.CompassEventType.KOTH);
         if (syncCompassesCallback != null) {
             syncCompassesCallback.run();
         }

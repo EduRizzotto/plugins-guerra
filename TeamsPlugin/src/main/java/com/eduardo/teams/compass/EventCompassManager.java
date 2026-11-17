@@ -30,7 +30,8 @@ public class EventCompassManager {
     public enum CompassEventType {
         AIRDROP("airdrop", "🧭 Bússola: AirDrop", NamedTextColor.GOLD),
         RELIC("relic", "🧭 Bússola: Portador da Relíquia", NamedTextColor.YELLOW),
-        HUNT("hunt", "🧭 Bússola: Caçada", NamedTextColor.RED);
+        HUNT("hunt", "🧭 Bússola: Caçada", NamedTextColor.RED),
+        KOTH("koth", "🧭 Bússola: Torre de Domínio", NamedTextColor.AQUA);
 
         private final String id;
         private final String displayTitle;

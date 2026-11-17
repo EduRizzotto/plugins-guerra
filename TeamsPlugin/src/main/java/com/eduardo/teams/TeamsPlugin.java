@@ -15,6 +15,9 @@ import com.eduardo.teams.horn.TrackerHornManager;
 import com.eduardo.teams.hunt.HuntCommand;
 import com.eduardo.teams.hunt.HuntListener;
 import com.eduardo.teams.hunt.HuntManager;
+import com.eduardo.teams.koth.KothCommand;
+import com.eduardo.teams.koth.KothListener;
+import com.eduardo.teams.koth.KothManager;
 import com.eduardo.teams.listener.CombatListener;
 import com.eduardo.teams.listener.GuiListener;
 import com.eduardo.teams.listener.PlayerChatAndJoinListener;
@@ -46,6 +49,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private QuestManager questManager;
     private RelicManager relicManager;
     private EventCompassManager compassManager;
+    private KothManager kothManager;
 
     @Override
     public void onEnable() {
@@ -77,6 +81,10 @@ public final class TeamsPlugin extends JavaPlugin {
         this.huntManager.setQuestManager(this.questManager);
         this.huntManager.setCompassManager(this.compassManager);
         HuntCommand huntCommand = new HuntCommand(this.huntManager);
+
+        this.kothManager = new KothManager(this, this.teamManager);
+        this.kothManager.setCompassManager(this.compassManager);
+        KothCommand kothCommand = new KothCommand(this.kothManager);
 
         PluginCommand cmd = getCommand("team");
         if (cmd != null) {
@@ -133,6 +141,12 @@ public final class TeamsPlugin extends JavaPlugin {
             reliquiaCmd.setTabCompleter(relicCommand);
         }
 
+        PluginCommand dominioCmd = getCommand("dominio");
+        if (dominioCmd != null) {
+            dominioCmd.setExecutor(kothCommand);
+            dominioCmd.setTabCompleter(kothCommand);
+        }
+
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);
         hornListener.setQuestManager(this.questManager);
 
@@ -149,6 +163,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new HuntListener(this, this.huntManager), this);
         pm.registerEvents(new QuestListener(this.questManager, this.teamManager, questGui, teamGui), this);
         pm.registerEvents(new RelicListener(this, this.relicManager), this);
+        pm.registerEvents(new KothListener(this.kothManager), this);
         pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
@@ -176,6 +191,9 @@ public final class TeamsPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (this.kothManager != null) {
+            this.kothManager.shutdown();
+        }
         if (this.compassManager != null) {
             this.compassManager.removeAllEventCompassesFromOnlinePlayers();
         }

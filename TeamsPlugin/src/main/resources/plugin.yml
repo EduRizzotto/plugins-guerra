@@ -32,6 +32,10 @@ commands:
     description: Inicia ou controla o evento Portador da Reliquia (apenas OP/admin).
     aliases: [relic, coroa]
     usage: /reliquia [random|aqui|ping|parar]
+  dominio:
+    description: Inicia ou controla o evento Torre de Dominio / Capture a Area (apenas OP/admin).
+    aliases: [torre, koth]
+    usage: /dominio [random|aqui|parar]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
