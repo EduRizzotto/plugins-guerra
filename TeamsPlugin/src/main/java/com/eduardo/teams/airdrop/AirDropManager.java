@@ -2,6 +2,7 @@ package com.eduardo.teams.airdrop;
 
 import com.eduardo.teams.TeamsPlugin;
 import com.eduardo.teams.horn.TrackerHornManager;
+import com.eduardo.teams.util.XaeroWaypointUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -325,6 +326,9 @@ public class AirDropManager {
         }
         activeDrops.remove(drop.getBlockLocation());
         removeHologram(drop.getHologramId());
+        if (activeDrops.isEmpty()) {
+            XaeroWaypointUtil.clearTemporaryCompassTargets();
+        }
         if (removeChestBlock) {
             Block b = drop.getBlockLocation().getBlock();
             if (b.getType() == Material.CHEST) {
@@ -409,6 +413,7 @@ public class AirDropManager {
                 .append(Component.newline());
 
         Bukkit.broadcast(msg);
+        XaeroWaypointUtil.broadcastWaypoint("AirDrop", "A", loc, XaeroWaypointUtil.COLOR_GOLD);
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, SoundCategory.RECORDS, 0.8f, 1.0f);
         }
@@ -420,6 +425,7 @@ public class AirDropManager {
                 .append(Component.text(formatCoords(loc), NamedTextColor.AQUA, TextDecoration.BOLD))
                 .append(Component.text(" foi DESTRANCADA! Corra para saquear!", NamedTextColor.GREEN).decoration(TextDecoration.BOLD, false));
         Bukkit.broadcast(msg);
+        XaeroWaypointUtil.broadcastWaypoint("AirDrop", "A", loc, XaeroWaypointUtil.COLOR_GREEN);
     }
 
     public static String formatCoords(Location loc) {

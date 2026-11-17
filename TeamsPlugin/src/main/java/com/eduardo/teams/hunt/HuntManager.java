@@ -5,6 +5,7 @@ import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
 import com.eduardo.teams.quest.QuestActionType;
 import com.eduardo.teams.quest.QuestManager;
+import com.eduardo.teams.util.XaeroWaypointUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -235,10 +236,12 @@ public class HuntManager {
      */
     public void stopHunt(boolean announceCancelled) {
         clearGlowFromPreys();
+        XaeroWaypointUtil.clearTemporaryCompassTargets();
         activePreysByTeam.clear();
         teamsAwaitingReconnectPrey.clear();
         state = HuntState.IDLE;
         secondsLeft = 0;
+        XaeroWaypointUtil.clearTemporaryCompassTargets();
 
         if (announceCancelled) {
             Bukkit.broadcast(
@@ -365,6 +368,7 @@ public class HuntManager {
                             .append(Component.text("!", NamedTextColor.YELLOW).decoration(TextDecoration.BOLD, false))
                             .append(Component.newline())
             );
+            XaeroWaypointUtil.broadcastWaypoint("Presa-" + newPrey.getName(), "P", loc, XaeroWaypointUtil.COLOR_RED);
         } else {
             // Nenhum outro membro do time esta online no momento; se alguem do time reconectar durante a cacada, vira presa
             activePreysByTeam.remove(teamKey);
@@ -471,6 +475,7 @@ public class HuntManager {
         if (activePreysByTeam.isEmpty() && teamsAwaitingReconnectPrey.isEmpty()) {
             state = HuntState.IDLE;
             secondsLeft = 0;
+            XaeroWaypointUtil.clearTemporaryCompassTargets();
             Bukkit.broadcast(
                     Component.text("🎯 [CAÇADA] ", NamedTextColor.GOLD, TextDecoration.BOLD)
                             .append(Component.text("Todas as presas foram abatidas! O evento de Caçada chegou ao fim!", NamedTextColor.GREEN)
@@ -520,6 +525,7 @@ public class HuntManager {
         teamsAwaitingReconnectPrey.clear();
         state = HuntState.IDLE;
         secondsLeft = 0;
+        XaeroWaypointUtil.clearTemporaryCompassTargets();
 
         Component msg = Component.empty()
                 .append(Component.newline())
@@ -665,6 +671,12 @@ public class HuntManager {
         }
 
         Bukkit.broadcast(msg);
+        for (UUID preyId : activePreysByTeam.values()) {
+            Player prey = Bukkit.getPlayer(preyId);
+            if (prey != null && prey.isOnline()) {
+                XaeroWaypointUtil.broadcastWaypoint("Presa-" + prey.getName(), "P", prey.getLocation(), XaeroWaypointUtil.COLOR_RED);
+            }
+        }
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.BLOCK_BELL_USE, SoundCategory.RECORDS, 1.0f, 1.2f);
         }

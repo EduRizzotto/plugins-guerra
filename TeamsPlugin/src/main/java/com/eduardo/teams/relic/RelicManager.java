@@ -3,6 +3,7 @@ package com.eduardo.teams.relic;
 import com.eduardo.teams.TeamsPlugin;
 import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
+import com.eduardo.teams.util.XaeroWaypointUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -211,6 +212,7 @@ public class RelicManager {
                 .append(Component.newline());
 
         Bukkit.broadcast(msg);
+        XaeroWaypointUtil.broadcastWaypoint("Reliquia", "R", location, XaeroWaypointUtil.COLOR_GOLD);
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.EVENT_RAID_HORN, SoundCategory.RECORDS, 0.9f, 1.15f);
         }
@@ -299,6 +301,7 @@ public class RelicManager {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.BLOCK_BEACON_POWER_SELECT, SoundCategory.RECORDS, 1.0f, 1.2f);
         }
+        XaeroWaypointUtil.broadcastWaypoint("Reliquia-" + newCarrier.getName(), "R", newCarrier.getLocation(), XaeroWaypointUtil.COLOR_YELLOW);
     }
 
     /**
@@ -365,6 +368,7 @@ public class RelicManager {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.playSound(p.getLocation(), Sound.ENTITY_WITHER_BREAK_BLOCK, SoundCategory.RECORDS, 0.8f, 1.1f);
         }
+        XaeroWaypointUtil.broadcastWaypoint("Reliquia", "R", dropLoc, XaeroWaypointUtil.COLOR_GOLD);
     }
 
     private void tick() {
@@ -443,6 +447,7 @@ public class RelicManager {
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, SoundCategory.RECORDS, 0.9f, 1.2f);
                 }
+                XaeroWaypointUtil.broadcastWaypoint("Reliquia-" + carrier.getName(), "R", loc, XaeroWaypointUtil.COLOR_YELLOW);
                 return;
             }
         }
@@ -454,6 +459,7 @@ public class RelicManager {
                             .append(Component.text(formatCoords(lastKnownLocation), NamedTextColor.AQUA, TextDecoration.BOLD))
                             .append(Component.text("! (" + timeStr + " restantes)", NamedTextColor.RED).decoration(TextDecoration.BOLD, false))
             );
+            XaeroWaypointUtil.broadcastWaypoint("Reliquia", "R", lastKnownLocation, XaeroWaypointUtil.COLOR_GOLD);
         }
     }
 
@@ -523,6 +529,7 @@ public class RelicManager {
         }
 
         removeDroppedEntities();
+        XaeroWaypointUtil.clearTemporaryCompassTargets();
         this.carrierId = null;
         this.state = RelicState.IDLE;
         this.secondsLeft = 0;
