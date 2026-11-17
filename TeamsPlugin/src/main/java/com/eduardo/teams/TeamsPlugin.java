@@ -7,6 +7,8 @@ import com.eduardo.teams.board.PlacarCommand;
 import com.eduardo.teams.board.WallBoardListener;
 import com.eduardo.teams.board.WallBoardManager;
 import com.eduardo.teams.command.TeamCommand;
+import com.eduardo.teams.compass.EventCompassListener;
+import com.eduardo.teams.compass.EventCompassManager;
 import com.eduardo.teams.gui.TeamGui;
 import com.eduardo.teams.horn.TrackerHornListener;
 import com.eduardo.teams.horn.TrackerHornManager;
@@ -43,10 +45,12 @@ public final class TeamsPlugin extends JavaPlugin {
     private HuntManager huntManager;
     private QuestManager questManager;
     private RelicManager relicManager;
+    private EventCompassManager compassManager;
 
     @Override
     public void onEnable() {
         this.teamManager = new TeamManager(this);
+        this.compassManager = new EventCompassManager(this);
         TeamGui teamGui = new TeamGui(this, this.teamManager);
         TeamCommand teamCommand = new TeamCommand(this.teamManager, teamGui);
 
@@ -56,6 +60,7 @@ public final class TeamsPlugin extends JavaPlugin {
         QuestCommand questCommand = new QuestCommand(this.questManager, questGui);
 
         this.relicManager = new RelicManager(this, this.teamManager);
+        this.relicManager.setCompassManager(this.compassManager);
         RelicCommand relicCommand = new RelicCommand(this.relicManager);
 
         this.wallBoardManager = new WallBoardManager(this, this.teamManager);
@@ -65,10 +70,12 @@ public final class TeamsPlugin extends JavaPlugin {
         this.trackerHornManager.registerRecipe();
 
         this.airDropManager = new AirDropManager(this, this.trackerHornManager);
+        this.airDropManager.setCompassManager(this.compassManager);
         AirDropCommand airDropCommand = new AirDropCommand(this.airDropManager);
 
         this.huntManager = new HuntManager(this, this.teamManager);
         this.huntManager.setQuestManager(this.questManager);
+        this.huntManager.setCompassManager(this.compassManager);
         HuntCommand huntCommand = new HuntCommand(this.huntManager);
 
         PluginCommand cmd = getCommand("team");
@@ -142,6 +149,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new HuntListener(this, this.huntManager), this);
         pm.registerEvents(new QuestListener(this.questManager, this.teamManager, questGui, teamGui), this);
         pm.registerEvents(new RelicListener(this, this.relicManager), this);
+        pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -168,6 +176,9 @@ public final class TeamsPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (this.compassManager != null) {
+            this.compassManager.removeAllEventCompassesFromOnlinePlayers();
+        }
         if (this.relicManager != null) {
             this.relicManager.shutdown();
         }

@@ -1,6 +1,8 @@
 package com.eduardo.teams.hunt;
 
 import com.eduardo.teams.TeamsPlugin;
+import com.eduardo.teams.compass.EventCompassManager;
+import com.eduardo.teams.compass.EventCompassManager.CompassEventType;
 import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
 import com.eduardo.teams.quest.QuestActionType;
@@ -60,6 +62,7 @@ public class HuntManager {
     private final TeamsPlugin plugin;
     private final TeamManager teamManager;
     private QuestManager questManager;
+    private EventCompassManager compassManager;
 
     private HuntState state = HuntState.IDLE;
     private int secondsLeft = 0;
@@ -84,6 +87,10 @@ public class HuntManager {
 
     public void setQuestManager(QuestManager questManager) {
         this.questManager = questManager;
+    }
+
+    public void setCompassManager(EventCompassManager compassManager) {
+        this.compassManager = compassManager;
     }
 
     private void startSchedulers() {
@@ -236,12 +243,13 @@ public class HuntManager {
      */
     public void stopHunt(boolean announceCancelled) {
         clearGlowFromPreys();
-        XaeroWaypointUtil.clearTemporaryCompassTargets();
+        if (compassManager != null) {
+            compassManager.removeCompassFromAllPlayers(CompassEventType.HUNT);
+        }
         activePreysByTeam.clear();
         teamsAwaitingReconnectPrey.clear();
         state = HuntState.IDLE;
         secondsLeft = 0;
-        XaeroWaypointUtil.clearTemporaryCompassTargets();
 
         if (announceCancelled) {
             Bukkit.broadcast(
@@ -280,8 +288,9 @@ public class HuntManager {
         if (state == HuntState.ACTIVE) {
             secondsLeft--;
 
-            // Reaplica o efeito Luminoso (GLOWING) a cada segundo nas presas online
+            // Reaplica o efeito Luminoso (GLOWING) a cada segundo nas presas online e atualiza as bussolas
             applyGlowToActivePreys();
+            updateHuntCompasses();
 
             if (secondsLeft <= 0) {
                 finishHuntWithSurvivors();
@@ -475,7 +484,9 @@ public class HuntManager {
         if (activePreysByTeam.isEmpty() && teamsAwaitingReconnectPrey.isEmpty()) {
             state = HuntState.IDLE;
             secondsLeft = 0;
-            XaeroWaypointUtil.clearTemporaryCompassTargets();
+            if (compassManager != null) {
+                compassManager.removeCompassFromAllPlayers(CompassEventType.HUNT);
+            }
             Bukkit.broadcast(
                     Component.text("🎯 [CAÇADA] ", NamedTextColor.GOLD, TextDecoration.BOLD)
                             .append(Component.text("Todas as presas foram abatidas! O evento de Caçada chegou ao fim!", NamedTextColor.GREEN)
@@ -525,7 +536,9 @@ public class HuntManager {
         teamsAwaitingReconnectPrey.clear();
         state = HuntState.IDLE;
         secondsLeft = 0;
-        XaeroWaypointUtil.clearTemporaryCompassTargets();
+        if (compassManager != null) {
+            compassManager.removeCompassFromAllPlayers(CompassEventType.HUNT);
+        }
 
         Component msg = Component.empty()
                 .append(Component.newline())
@@ -566,6 +579,55 @@ public class HuntManager {
             if (p != null && p.isOnline() && !p.isDead()) {
                 p.addPotionEffect(glow);
             }
+        }
+    }
+
+    /**
+     * Entrega/atualiza a Bussola da Cacada no inventario de cada jogador online,
+     * apontando para a presa inimiga viva mais proxima.
+     */
+    private void updateHuntCompasses() {
+        if (compassManager == null || state != HuntState.ACTIVE || activePreysByTeam.isEmpty()) {
+            return;
+        }
+
+        List<Player> onlinePreys = new ArrayList<>();
+        for (UUID preyId : activePreysByTeam.values()) {
+            Player prey = Bukkit.getPlayer(preyId);
+            if (prey != null && prey.isOnline() && !prey.isDead()) {
+                onlinePreys.add(prey);
+            }
+        }
+        if (onlinePreys.isEmpty()) {
+            return;
+        }
+
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            Player bestTarget = null;
+            double bestDistSq = Double.MAX_VALUE;
+
+            for (Player prey : onlinePreys) {
+                if (prey.equals(viewer)) {
+                    continue;
+                }
+                if (teamManager.isSameTeam(viewer.getUniqueId(), prey.getUniqueId())) {
+                    continue;
+                }
+                double dSq = viewer.getWorld().equals(prey.getWorld())
+                        ? viewer.getLocation().distanceSquared(prey.getLocation())
+                        : Double.MAX_VALUE - 1.0;
+                if (dSq < bestDistSq) {
+                    bestDistSq = dSq;
+                    bestTarget = prey;
+                }
+            }
+
+            // Fallback (ex: se houver apenas 1 time online testando, aponta para a presa ativa)
+            if (bestTarget == null) {
+                bestTarget = onlinePreys.getFirst();
+            }
+
+            compassManager.giveOrUpdatePlayerCompass(viewer, CompassEventType.HUNT, bestTarget.getLocation(), "Presa: " + bestTarget.getName());
         }
     }
 

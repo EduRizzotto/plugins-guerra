@@ -1,6 +1,8 @@
 package com.eduardo.teams.relic;
 
 import com.eduardo.teams.TeamsPlugin;
+import com.eduardo.teams.compass.EventCompassManager;
+import com.eduardo.teams.compass.EventCompassManager.CompassEventType;
 import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
 import com.eduardo.teams.util.XaeroWaypointUtil;
@@ -53,7 +55,7 @@ public class RelicManager {
     }
 
     public static final int RELIC_HOLD_DURATION_SECONDS = 10 * 60; // 10 minutos (600s)
-    public static final int PING_INTERVAL_SECONDS = 30; // Ping no chat a cada 30 segundos
+    public static final int PING_INTERVAL_SECONDS = 120; // Ping no chat a cada 2 minutos (a bussola aponta 100% do tempo)
     public static final int WAITING_PICKUP_TIMEOUT_SECONDS = 15 * 60; // 15 min se ninguem pegar do chao inicial
     public static final int MIN_RADIUS = 150;
     public static final int MAX_RADIUS = 700;
@@ -61,6 +63,7 @@ public class RelicManager {
     private final TeamsPlugin plugin;
     private final TeamManager teamManager;
     private final NamespacedKey relicKey;
+    private EventCompassManager compassManager;
 
     private RelicState state = RelicState.IDLE;
     private int secondsLeft = 0;
@@ -78,6 +81,10 @@ public class RelicManager {
         this.teamManager = teamManager;
         this.relicKey = new NamespacedKey(plugin, "war_relic");
         this.tickTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
+    }
+
+    public void setCompassManager(EventCompassManager compassManager) {
+        this.compassManager = compassManager;
     }
 
     public void shutdown() {
@@ -379,6 +386,9 @@ public class RelicManager {
         if (state == RelicState.WAITING_PICKUP) {
             waitingTimeoutSeconds--;
             spawnGroundParticles();
+            if (compassManager != null && lastKnownLocation != null) {
+                compassManager.giveOrUpdateAllPlayers(CompassEventType.RELIC, lastKnownLocation, "Relíquia no Chão");
+            }
             if (waitingTimeoutSeconds <= 0) {
                 stopEvent(false);
                 Bukkit.broadcast(
@@ -398,6 +408,9 @@ public class RelicManager {
                 if (carrier != null && carrier.isOnline() && !carrier.isDead()) {
                     applyCarrierGlow(carrier);
                     lastKnownLocation = carrier.getLocation();
+                    if (compassManager != null) {
+                        compassManager.giveOrUpdateAllPlayers(CompassEventType.RELIC, lastKnownLocation, carrier.getName());
+                    }
                     carrier.sendActionBar(
                             Component.text("👑 Portador da Relíquia — Tempo restante: ", NamedTextColor.GOLD)
                                     .append(Component.text(formatTime(secondsLeft), NamedTextColor.GREEN, TextDecoration.BOLD))
@@ -406,6 +419,9 @@ public class RelicManager {
             } else {
                 spawnGroundParticles();
                 ensureDroppedEntityValid();
+                if (compassManager != null && lastKnownLocation != null) {
+                    compassManager.giveOrUpdateAllPlayers(CompassEventType.RELIC, lastKnownLocation, "Relíquia Caída");
+                }
             }
 
             if (secondsLeft <= 0) {
@@ -529,7 +545,9 @@ public class RelicManager {
         }
 
         removeDroppedEntities();
-        XaeroWaypointUtil.clearTemporaryCompassTargets();
+        if (compassManager != null) {
+            compassManager.removeCompassFromAllPlayers(CompassEventType.RELIC);
+        }
         this.carrierId = null;
         this.state = RelicState.IDLE;
         this.secondsLeft = 0;

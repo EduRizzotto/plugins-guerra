@@ -1,6 +1,8 @@
 package com.eduardo.teams.airdrop;
 
 import com.eduardo.teams.TeamsPlugin;
+import com.eduardo.teams.compass.EventCompassManager;
+import com.eduardo.teams.compass.EventCompassManager.CompassEventType;
 import com.eduardo.teams.horn.TrackerHornManager;
 import com.eduardo.teams.util.XaeroWaypointUtil;
 import net.kyori.adventure.text.Component;
@@ -118,6 +120,7 @@ public class AirDropManager {
 
     private final TeamsPlugin plugin;
     private final TrackerHornManager trackerHornManager;
+    private EventCompassManager compassManager;
     private final Map<Location, ActiveAirDrop> activeDrops = new HashMap<>();
     private BukkitTask tickTask;
     private BukkitTask hourlyTask;
@@ -126,6 +129,10 @@ public class AirDropManager {
         this.plugin = plugin;
         this.trackerHornManager = trackerHornManager;
         startSchedulers();
+    }
+
+    public void setCompassManager(EventCompassManager compassManager) {
+        this.compassManager = compassManager;
     }
 
     private void startSchedulers() {
@@ -264,6 +271,9 @@ public class AirDropManager {
         ActiveAirDrop drop = new ActiveAirDrop(blockLoc, hologramId, UNLOCK_DURATION_SECONDS);
         activeDrops.put(blockLoc, drop);
 
+        if (compassManager != null) {
+            compassManager.giveOrUpdateAllPlayers(CompassEventType.AIRDROP, blockLoc, "Caixa Trancada");
+        }
         broadcastDropSpawned(blockLoc);
         return drop;
     }
@@ -317,6 +327,10 @@ public class AirDropManager {
                     updateHologram(drop);
                 }
             }
+            if (compassManager != null) {
+                String status = drop.isUnlocked() ? "Destrancado" : ("Trancado " + drop.getSecondsUntilUnlock() + "s");
+                compassManager.giveOrUpdateAllPlayers(CompassEventType.AIRDROP, loc, status);
+            }
         }
     }
 
@@ -326,8 +340,8 @@ public class AirDropManager {
         }
         activeDrops.remove(drop.getBlockLocation());
         removeHologram(drop.getHologramId());
-        if (activeDrops.isEmpty()) {
-            XaeroWaypointUtil.clearTemporaryCompassTargets();
+        if (activeDrops.isEmpty() && compassManager != null) {
+            compassManager.removeCompassFromAllPlayers(CompassEventType.AIRDROP);
         }
         if (removeChestBlock) {
             Block b = drop.getBlockLocation().getBlock();
