@@ -29,6 +29,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,7 +52,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class KothManager {
 
-    public static final long AUTO_KOTH_INTERVAL_TICKS = 90L * 60L * 20L; // A cada 1h30
+    public static final long AUTO_KOTH_INTERVAL_TICKS = 4L * 60L * 60L * 20L; // A cada 4 horas (apos as 12:00)
     public static final int MAX_EVENT_DURATION_SECONDS = 25 * 60; // Tempo maximo: 25 minutos
     public static final int TARGET_CAPTURE_POINTS = 1000;
     public static final int POINTS_PER_PLAYER_SECOND = 5;
@@ -95,7 +96,10 @@ public class KothManager {
     private void startSchedulers() {
         this.tickTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
         this.autoTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            if (!active && !Bukkit.getOnlinePlayers().isEmpty() && !teamManager.getAllTeams().isEmpty()) {
+            if (!active
+                    && LocalTime.now().getHour() >= 12
+                    && !Bukkit.getOnlinePlayers().isEmpty()
+                    && !teamManager.getAllTeams().isEmpty()) {
                 World world = getDefaultOverworld();
                 if (world != null) {
                     startRandomKoth(world);

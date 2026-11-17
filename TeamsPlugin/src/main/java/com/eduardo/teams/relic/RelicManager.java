@@ -54,6 +54,7 @@ public class RelicManager {
         ACTIVE
     }
 
+    public static final long AUTO_RELIC_INTERVAL_TICKS = 5L * 60L * 60L * 20L; // A cada 5 horas
     public static final int RELIC_HOLD_DURATION_SECONDS = 10 * 60; // 10 minutos (600s)
     public static final int PING_INTERVAL_SECONDS = 120; // Ping no chat a cada 2 minutos (a bussola aponta 100% do tempo)
     public static final int WAITING_PICKUP_TIMEOUT_SECONDS = 15 * 60; // 15 min se ninguem pegar do chao inicial
@@ -75,12 +76,30 @@ public class RelicManager {
     private Location lastKnownLocation;
 
     private BukkitTask tickTask;
+    private BukkitTask autoTask;
 
     public RelicManager(TeamsPlugin plugin, TeamManager teamManager) {
         this.plugin = plugin;
         this.teamManager = teamManager;
         this.relicKey = new NamespacedKey(plugin, "war_relic");
         this.tickTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
+        this.autoTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (state == RelicState.IDLE && !Bukkit.getOnlinePlayers().isEmpty()) {
+                World world = getDefaultOverworld();
+                if (world != null) {
+                    spawnRandomRelic(world);
+                }
+            }
+        }, AUTO_RELIC_INTERVAL_TICKS, AUTO_RELIC_INTERVAL_TICKS);
+    }
+
+    private World getDefaultOverworld() {
+        for (World w : Bukkit.getWorlds()) {
+            if (w.getEnvironment() == World.Environment.NORMAL) {
+                return w;
+            }
+        }
+        return Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().getFirst();
     }
 
     public void setCompassManager(EventCompassManager compassManager) {
@@ -91,6 +110,10 @@ public class RelicManager {
         if (tickTask != null) {
             tickTask.cancel();
             tickTask = null;
+        }
+        if (autoTask != null) {
+            autoTask.cancel();
+            autoTask = null;
         }
         stopEvent(false);
     }
