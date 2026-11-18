@@ -34,7 +34,8 @@ public class EventCompassManager {
         AIRDROP("airdrop", "🧭 Bússola: AirDrop", NamedTextColor.GOLD),
         RELIC("relic", "🧭 Bússola: Portador da Relíquia", NamedTextColor.YELLOW),
         HUNT("hunt", "🧭 Bússola: Caçada", NamedTextColor.RED),
-        KOTH("koth", "🧭 Bússola: Torre de Domínio", NamedTextColor.AQUA);
+        KOTH("koth", "🧭 Bússola: Torre de Domínio", NamedTextColor.AQUA),
+        DOOM("doom", "🧭 Bússola: Fortaleza DOOM", NamedTextColor.DARK_RED);
 
         private final String id;
         private final String displayTitle;

@@ -36,6 +36,10 @@ commands:
     description: Inicia ou controla o evento Torre de Dominio / Capture a Area (apenas OP/admin).
     aliases: [torre, koth]
     usage: /dominio [aqui|parar]
+  doom:
+    description: Gera ou controla a gigantesca Fortaleza DOOM entre 5000 e 6000 blocos do spawn (apenas OP/admin).
+    aliases: [fortalezadoom, dungeondoom]
+    usage: /doom [aqui|tp|parar]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
