@@ -31,6 +31,7 @@ import org.bukkit.block.CreatureSpawner;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Ladder;
+import org.bukkit.block.data.type.Stairs;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Display;
@@ -68,14 +69,19 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Gerencia o mega-evento da Fortaleza DOOM (/doom):
- * - Gera uma dungeon gigantesca (37 blocos de largura x 125 blocos de comprimento x 19 blocos de altura),
+ * - Gera uma dungeon colossal (41 blocos de largura x 257 blocos de comprimento x 19 blocos de altura),
  *   totalmente fechada e com APENAS UMA ENTRADA frontal, localizada entre 5000 e 6000 blocos de raio do spawn.
- * - Projetada para a disputa simultanea de 5 equipes, dividida em 5 grandes saloes interligados:
+ * - Projetada para a disputa simultanea de 5 equipes, dividida em 10 grandes saloes interligados:
  *     1. Patio da Carnificina (Arena PvP/PvE inicial com barricadas e 6 spawners)
  *     2. Abismo das Almas (Grande Parkour de 3 rotas paralelas sobre magma/almas, com escadas de retorno)
  *     3. Labirinto das Sombras (Labirinto de 5 corredores largos com teias e 8 spawners)
  *     4. Pontes do Julgamento (Parkour de precisao em 3 pontes quebradas sob fogo de Blazes e Esqueletos)
- *     5. Santuario do DOOM (Salao do Trono com Guardioes de Elite e o Bau Final com o Coracao do Doom: +200 pts)
+ *     5. Catacumbas Congeladas (Arena escorregadia de Gelo Azul, teias, pilares e 6 spawners de Esqueletos/Strays)
+ *     6. Espiral do Vacuo (Parkour de 5 rotas de pilares ascendentes e passarelas suspensas)
+ *     7. Forja Infernal (3 grandes fornalhas de lava com grades, corredores taticos e 6 spawners)
+ *     8. Pendulos da Morte (Parkour com obstaculos suspensos de Obsidiana Chorona e Correntes)
+ *     9. Coliseu dos Campeoes (Anfiteatro pre-santuario com ringue central, guardas e 6 spawners de elite)
+ *    10. Santuario do DOOM (Salao do Trono com Guardioes de Elite e o Bau Final com o Coracao do Doom: +200 pts)
  * - Totalmente indestrutivel e bloqueada contra colocacao/quebra de blocos, baldes, explosoes e perolas do fim.
  */
 public class DoomManager {
@@ -86,9 +92,9 @@ public class DoomManager {
     public static final int COLLAPSE_COUNTDOWN_SECONDS = 60;
 
     // Dimensoes locais relativas a (originX, baseY, originZ)
-    public static final int HALF_WIDTH = 18;     // dx: -18 .. +18 (37 blocos de largura)
+    public static final int HALF_WIDTH = 20;     // dx: -20 .. +20 (41 blocos de largura; interior -18..+18 = 37 blocos)
     public static final int MIN_DZ = -10;        // Praca externa de entrada: -10 .. -1
-    public static final int MAX_DZ = 114;        // Parede traseira selada: 113 .. 114
+    public static final int MAX_DZ = 246;        // Parede traseira selada: 245 .. 246 (257 blocos de comprimento total!)
     public static final int MIN_DY = -1;         // Fundacao: -1
     public static final int MAX_DY = 17;         // Teto blindado: 16 .. 17
 
@@ -188,9 +194,9 @@ public class DoomManager {
                     .decoration(TextDecoration.ITALIC, false));
             meta.lore(List.of(
                     Component.empty(),
-                    Component.text("Artefato ancestral guardado no fundo", NamedTextColor.GRAY)
+                    Component.text("Artefato ancestral guardado na 10ª sala", NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false),
-                    Component.text("da gigantesca Fortaleza DOOM.", NamedTextColor.GRAY)
+                    Component.text("da colossal Fortaleza DOOM.", NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false),
                     Component.empty(),
                     Component.text("⚡ Clique para reivindicar imediatamente", NamedTextColor.YELLOW)
@@ -234,7 +240,6 @@ public class DoomManager {
 
     /**
      * Verifica se uma localizacao esta dentro da regiao protegida da Fortaleza DOOM.
-     * Inclui margem extra de 2 blocos ao redor de toda a estrutura e da praca de entrada.
      */
     public boolean isProtectedLocation(Location loc) {
         if ((!active && !generating) || loc == null || dungeonWorld == null) {
@@ -264,8 +269,14 @@ public class DoomManager {
     }
 
     /**
-     * Inicia a geracao da Fortaleza DOOM em uma coordenada aleatoria entre 5000 e 6000 blocos do spawn.
+     * Registra qualquer mob spawnado pelos CreatureSpawners da dungeon para garantir remocao total no colapso.
      */
+    public void registerDungeonMob(Entity entity) {
+        if (entity instanceof LivingEntity living && !(entity instanceof Player)) {
+            tagDungeonMob(living);
+        }
+    }
+
     public void startRandomDoom(World world, CommandSender initiator) {
         if (world == null) {
             return;
@@ -277,7 +288,7 @@ public class DoomManager {
         this.generating = true;
         if (initiator != null) {
             initiator.sendMessage(Component.text(
-                    "⚡ Buscando terreno entre " + MIN_SPAWN_RADIUS + " e " + MAX_SPAWN_RADIUS + " blocos do spawn e erguendo a Fortaleza DOOM...",
+                    "⚡ Buscando terreno entre " + MIN_SPAWN_RADIUS + " e " + MAX_SPAWN_RADIUS + " blocos do spawn e erguendo a Fortaleza DOOM (10 Salões)...",
                     NamedTextColor.YELLOW));
         }
 
@@ -291,9 +302,6 @@ public class DoomManager {
                 }));
     }
 
-    /**
-     * Inicia a geracao da Fortaleza DOOM imediatamente na frente da localizacao informada (/doom aqui).
-     */
     public void startDoomAt(Location targetEntrance, CommandSender initiator) {
         if (targetEntrance == null || targetEntrance.getWorld() == null) {
             return;
@@ -303,7 +311,7 @@ public class DoomManager {
         }
         this.generating = true;
         if (initiator != null) {
-            initiator.sendMessage(Component.text("⚡ Erguendo a gigantesca Fortaleza DOOM nesta localização...", NamedTextColor.YELLOW));
+            initiator.sendMessage(Component.text("⚡ Erguendo a colossal Fortaleza DOOM (10 Salões) nesta localização...", NamedTextColor.YELLOW));
         }
         beginDungeonConstruction(targetEntrance.toBlockLocation(), initiator);
     }
@@ -331,7 +339,6 @@ public class DoomManager {
         this.originX = chosenEntrance.getBlockX();
         this.originZ = chosenEntrance.getBlockZ();
 
-        // Carrega os chunks da estrutura de forma assincrona antes de construir as fatias
         int minChunkX = (originX - HALF_WIDTH - 2) >> 4;
         int maxChunkX = (originX + HALF_WIDTH + 2) >> 4;
         int minChunkZ = (originZ + MIN_DZ - 3) >> 4;
@@ -355,11 +362,10 @@ public class DoomManager {
                         ticketedChunks.add(chunkKey(chunk.getX(), chunk.getZ()));
                     }
 
-                    // Calcula a altura ideal da entrada com o chunk da frente ja carregado
                     int surfaceY = dungeonWorld.getHighestBlockYAt(originX, originZ - 3) + 1;
                     this.baseY = Math.max(dungeonWorld.getMinHeight() + 12, Math.min(dungeonWorld.getMaxHeight() - 28, surfaceY));
                     this.entranceLocation = new Location(dungeonWorld, originX + 0.5, baseY + 1, originZ - 2.5);
-                    this.chestLocation = new Location(dungeonWorld, originX, baseY + 8, originZ + 107);
+                    this.chestLocation = new Location(dungeonWorld, originX, baseY + 8, originZ + 238);
 
                     prepareSpawnerList();
                     startSlicedBuild(initiator);
@@ -368,23 +374,23 @@ public class DoomManager {
 
     private void prepareSpawnerList() {
         spawnerPoints.clear();
-        // Salao 1: Patio da Carnificina (6 spawners)
-        spawnerPoints.add(new SpawnerPoint(-12, 2, 7, EntityType.HUSK));
-        spawnerPoints.add(new SpawnerPoint(12, 2, 7, EntityType.HUSK));
+        // Sala 1: Patio da Carnificina (6 spawners)
+        spawnerPoints.add(new SpawnerPoint(-13, 2, 7, EntityType.HUSK));
+        spawnerPoints.add(new SpawnerPoint(13, 2, 7, EntityType.HUSK));
         spawnerPoints.add(new SpawnerPoint(0, 2, 13, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(-12, 2, 19, EntityType.SKELETON));
-        spawnerPoints.add(new SpawnerPoint(12, 2, 19, EntityType.SKELETON));
-        spawnerPoints.add(new SpawnerPoint(0, 2, 20, EntityType.VINDICATOR));
+        spawnerPoints.add(new SpawnerPoint(-13, 2, 18, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(13, 2, 18, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(0, 2, 19, EntityType.VINDICATOR));
 
-        // Salao 2: Abismo de Fogo - Torres laterais de disparo sobre o Parkour (4 spawners)
-        spawnerPoints.add(new SpawnerPoint(-15, 6, 36, EntityType.SKELETON));
-        spawnerPoints.add(new SpawnerPoint(15, 6, 36, EntityType.SKELETON));
-        spawnerPoints.add(new SpawnerPoint(-15, 6, 46, EntityType.BLAZE));
-        spawnerPoints.add(new SpawnerPoint(15, 6, 46, EntityType.BLAZE));
+        // Sala 2: Abismo das Almas - Torres laterais sobre o Parkour (4 spawners)
+        spawnerPoints.add(new SpawnerPoint(-17, 6, 36, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(17, 6, 36, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(-17, 6, 46, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(17, 6, 46, EntityType.BLAZE));
 
-        // Salao 3: Labirinto das Sombras (8 spawners)
-        spawnerPoints.add(new SpawnerPoint(-13, 2, 65, EntityType.CAVE_SPIDER));
-        spawnerPoints.add(new SpawnerPoint(13, 2, 65, EntityType.CAVE_SPIDER));
+        // Sala 3: Labirinto das Sombras (8 spawners)
+        spawnerPoints.add(new SpawnerPoint(-14, 2, 65, EntityType.CAVE_SPIDER));
+        spawnerPoints.add(new SpawnerPoint(14, 2, 65, EntityType.CAVE_SPIDER));
         spawnerPoints.add(new SpawnerPoint(-7, 2, 65, EntityType.WITHER_SKELETON));
         spawnerPoints.add(new SpawnerPoint(7, 2, 65, EntityType.WITHER_SKELETON));
         spawnerPoints.add(new SpawnerPoint(0, 2, 68, EntityType.VINDICATOR));
@@ -392,28 +398,60 @@ public class DoomManager {
         spawnerPoints.add(new SpawnerPoint(7, 2, 73, EntityType.HUSK));
         spawnerPoints.add(new SpawnerPoint(0, 2, 74, EntityType.BLAZE));
 
-        // Salao 4: Pontes do Julgamento (4 spawners nas torres entre as pontes)
-        spawnerPoints.add(new SpawnerPoint(-4, 5, 86, EntityType.SKELETON));
-        spawnerPoints.add(new SpawnerPoint(4, 5, 86, EntityType.SKELETON));
-        spawnerPoints.add(new SpawnerPoint(-4, 5, 90, EntityType.BLAZE));
-        spawnerPoints.add(new SpawnerPoint(4, 5, 90, EntityType.BLAZE));
+        // Sala 4: Pontes do Julgamento (4 spawners)
+        spawnerPoints.add(new SpawnerPoint(-5, 5, 88, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(5, 5, 88, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(-5, 5, 93, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(5, 5, 93, EntityType.BLAZE));
 
-        // Salao 5: Santuario do DOOM (6 spawners de elite)
-        spawnerPoints.add(new SpawnerPoint(-10, 6, 100, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(10, 6, 100, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(-6, 6, 104, EntityType.BLAZE));
-        spawnerPoints.add(new SpawnerPoint(6, 6, 104, EntityType.BLAZE));
-        spawnerPoints.add(new SpawnerPoint(-10, 6, 108, EntityType.VINDICATOR));
-        spawnerPoints.add(new SpawnerPoint(10, 6, 108, EntityType.VINDICATOR));
+        // Sala 5: Catacumbas Congeladas (6 spawners)
+        spawnerPoints.add(new SpawnerPoint(-13, 2, 108, EntityType.STRAY));
+        spawnerPoints.add(new SpawnerPoint(13, 2, 108, EntityType.STRAY));
+        spawnerPoints.add(new SpawnerPoint(0, 2, 113, EntityType.WITHER_SKELETON));
+        spawnerPoints.add(new SpawnerPoint(-13, 2, 118, EntityType.STRAY));
+        spawnerPoints.add(new SpawnerPoint(13, 2, 118, EntityType.STRAY));
+        spawnerPoints.add(new SpawnerPoint(0, 2, 119, EntityType.VINDICATOR));
+
+        // Sala 6: Espiral do Vacuo (4 spawners nas passarelas suspensas)
+        spawnerPoints.add(new SpawnerPoint(-17, 7, 136, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(17, 7, 136, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(-17, 7, 144, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(17, 7, 144, EntityType.BLAZE));
+
+        // Sala 7: Forja Infernal (6 spawners ao redor das fornalhas de lava)
+        spawnerPoints.add(new SpawnerPoint(-14, 2, 160, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(14, 2, 160, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(-6, 2, 165, EntityType.WITHER_SKELETON));
+        spawnerPoints.add(new SpawnerPoint(6, 2, 165, EntityType.WITHER_SKELETON));
+        spawnerPoints.add(new SpawnerPoint(-14, 2, 170, EntityType.VINDICATOR));
+        spawnerPoints.add(new SpawnerPoint(14, 2, 170, EntityType.VINDICATOR));
+
+        // Sala 8: Pendulos da Morte (4 spawners)
+        spawnerPoints.add(new SpawnerPoint(-17, 6, 186, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(17, 6, 186, EntityType.SKELETON));
+        spawnerPoints.add(new SpawnerPoint(-17, 6, 194, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(17, 6, 194, EntityType.BLAZE));
+
+        // Sala 9: Coliseu dos Campeoes (6 spawners no anfiteatro)
+        spawnerPoints.add(new SpawnerPoint(-14, 6, 210, EntityType.WITHER_SKELETON));
+        spawnerPoints.add(new SpawnerPoint(14, 6, 210, EntityType.WITHER_SKELETON));
+        spawnerPoints.add(new SpawnerPoint(0, 6, 215, EntityType.VINDICATOR));
+        spawnerPoints.add(new SpawnerPoint(-14, 6, 221, EntityType.VINDICATOR));
+        spawnerPoints.add(new SpawnerPoint(14, 6, 221, EntityType.VINDICATOR));
+        spawnerPoints.add(new SpawnerPoint(0, 6, 222, EntityType.BLAZE));
+
+        // Sala 10: Santuario do DOOM (6 spawners de elite ao redor do Bau Final)
+        spawnerPoints.add(new SpawnerPoint(-11, 6, 231, EntityType.WITHER_SKELETON));
+        spawnerPoints.add(new SpawnerPoint(11, 6, 231, EntityType.WITHER_SKELETON));
+        spawnerPoints.add(new SpawnerPoint(-7, 6, 235, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(7, 6, 235, EntityType.BLAZE));
+        spawnerPoints.add(new SpawnerPoint(-11, 6, 239, EntityType.VINDICATOR));
+        spawnerPoints.add(new SpawnerPoint(11, 6, 239, EntityType.VINDICATOR));
     }
 
-    /**
-     * Constroi a dungeon em fatias ao longo do eixo Z (8 fatias por tick = ~0.8s no total)
-     * para garantir zero travamento no servidor mesmo sendo uma estrutura de ~85.000 blocos.
-     */
     private void startSlicedBuild(CommandSender initiator) {
         final int[] currentDz = {MIN_DZ};
-        final int slicesPerTick = 8;
+        final int slicesPerTick = 10;
 
         this.buildTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (dungeonWorld == null) {
@@ -475,7 +513,6 @@ public class DoomManager {
                         }
                         continue;
                     }
-                    // Moldura do Portao de Entrada Unica
                     if (isFrontWall && Math.abs(dx) == 3 && dy >= 1 && dy <= 6) {
                         setDungeonBlock(dx, dy, dz, (dy % 2 == 0) ? Material.GILDED_BLACKSTONE : Material.CRYING_OBSIDIAN);
                         continue;
@@ -485,7 +522,6 @@ public class DoomManager {
                         continue;
                     }
 
-                    // Pilares decorativos internos a cada 6 blocos nas paredes laterais
                     boolean isInnerSideLayer = Math.abs(dx) == HALF_WIDTH - 1 && dz > 1 && dz < MAX_DZ - 1;
                     if (isInnerSideLayer && (dz % 6 == 0)) {
                         setDungeonBlock(dx, dy, dz, (dy == 4 || dy == 10) ? Material.GILDED_BLACKSTONE : Material.CRYING_OBSIDIAN);
@@ -497,50 +533,81 @@ public class DoomManager {
                 } else if (isFloor) {
                     setDungeonBlock(dx, 0, dz, resolveFloorMaterial(dx, dz));
                 } else {
-                    // Limpa todo o interior (dy = 1..15) antes de erguer as estruturas internas
                     setDungeonBlock(dx, dy, dz, Material.AIR);
                 }
             }
         }
 
-        // Luminarias suspensas no teto (dy = 15) em pontos estrategicos longe dos spawners
+        // Luminarias suspensas no teto (dy = 15)
         if (dz > 2 && dz < MAX_DZ - 2 && dz % 8 == 4) {
-            setDungeonBlock(-8, 15, dz, Material.SOUL_LANTERN);
+            setDungeonBlock(-10, 15, dz, Material.SOUL_LANTERN);
             setDungeonBlock(0, 15, dz, Material.SOUL_LANTERN);
-            setDungeonBlock(8, 15, dz, Material.SOUL_LANTERN);
+            setDungeonBlock(10, 15, dz, Material.SOUL_LANTERN);
         }
 
-        // 2. Constroi a arquitetura interna de cada um dos 5 Saloes
+        int[][] standardThreeDoors = {{-12, -10}, {-2, 2}, {10, 12}};
+
+        // 2. Arquitetura interna dos 10 Saloes Interligados
         if (dz >= 2 && dz <= 24) {
-            buildHall1CarnageSlice(dz);
+            buildHall1CarnageSlice(dz, standardThreeDoors);
         } else if (dz == 25 || dz == 26) {
-            buildPartitionWall(dz, new int[][]{{-11, -9}, {-2, 2}, {9, 11}}, 5, 9, true);
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
         } else if (dz >= 27 && dz <= 55) {
             buildHall2ParkourAbyssSlice(dz);
         } else if (dz == 56) {
-            buildPartitionWall(dz, new int[][]{{-11, -9}, {-2, 2}, {9, 11}}, 5, 9, true);
-        } else if (dz >= 57 && dz <= 79) {
-            buildHall3ShadowMazeSlice(dz);
-        } else if (dz == 80) {
-            buildPartitionWall(dz, new int[][]{{-10, -8}, {-2, 2}, {8, 10}}, 5, 9, true);
-        } else if (dz >= 81 && dz <= 95) {
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
+        } else if (dz >= 57 && dz <= 80) {
+            buildHall3ShadowMazeSlice(dz, standardThreeDoors);
+        } else if (dz == 81) {
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
+        } else if (dz >= 82 && dz <= 100) {
             buildHall4JudgmentBridgesSlice(dz);
-        } else if (dz == 96) {
+        } else if (dz == 101) {
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
+        } else if (dz >= 102 && dz <= 125) {
+            buildHall5FrozenCatacombsSlice(dz, standardThreeDoors);
+        } else if (dz == 126) {
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
+        } else if (dz >= 127 && dz <= 152) {
+            buildHall6VoidSpiralParkourSlice(dz);
+        } else if (dz == 153) {
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
+        } else if (dz >= 154 && dz <= 177) {
+            buildHall7InfernalForgeSlice(dz, standardThreeDoors);
+        } else if (dz == 178) {
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
+        } else if (dz >= 179 && dz <= 203) {
+            buildHall8PendulumParkourSlice(dz);
+        } else if (dz == 204) {
+            buildPartitionWall(dz, standardThreeDoors, 5, 9, true);
+        } else if (dz >= 205 && dz <= 226) {
+            buildHall9ChampionsColiseumSlice(dz);
+        } else if (dz == 227) {
             buildPartitionWall(dz, new int[][]{{-4, 4}}, 5, 11, true);
-        } else if (dz >= 97 && dz <= 112) {
-            buildHall5DoomSanctumSlice(dz);
+        } else if (dz >= 228 && dz <= 244) {
+            buildHall10DoomSanctumSlice(dz);
         }
     }
 
     private Material resolveFloorMaterial(int dx, int dz) {
-        // Salao 2 (Abismo de Parkour: dz 30..52) e Salao 4 (Garganta de Magma: dz 83..92) tem piso de Magma e Areia das Almas
-        if ((dz >= 30 && dz <= 52) || (dz >= 83 && dz <= 92)) {
+        // Fossos de Parkour (Salas 2, 4, 6 e 8): Magma e Areia das Almas
+        if ((dz >= 30 && dz <= 52)
+                || (dz >= 85 && dz <= 96)
+                || (dz >= 130 && dz <= 149)
+                || (dz >= 182 && dz <= 199)) {
             if ((Math.abs(dx) + dz) % 3 == 0) {
                 return Material.SOUL_SAND;
             }
             return ((dx + dz) % 2 == 0) ? Material.MAGMA_BLOCK : Material.BLACKSTONE;
         }
-        // Tapete central imperial nos Saloes 1 e 5
+        // Sala 5: Catacumbas Congeladas (dz = 106..121) -> Piso escorregadio de Gelo Azul e Gelo Compactado
+        if (dz >= 106 && dz <= 121) {
+            if ((Math.abs(dx) + dz) % 5 == 0) {
+                return Material.SOUL_SAND;
+            }
+            return ((dx + dz) % 2 == 0) ? Material.BLUE_ICE : Material.PACKED_ICE;
+        }
+        // Tapete central imperial
         if (Math.abs(dx) <= 2) {
             return (dz % 4 == 0) ? Material.GILDED_BLACKSTONE : Material.RED_NETHER_BRICKS;
         }
@@ -548,27 +615,81 @@ public class DoomManager {
     }
 
     /**
-     * Praca Externa Monumental (dz = -10 .. -1):
-     * Garante que a entrada unica nunca fique obstruida por morros ou arvores e cria dois obeliscos com Fogo das Almas.
+     * Helper universal para escadarias que sobem 4 blocos (dy = 1 -> 2 -> 3 -> 4) ao longo de 4 fatias Z
+     * usando blocos reais de escada (POLISHED_BLACKSTONE_BRICK_STAIRS) para subida fluida sem precisar pular!
      */
+    private void buildAscendingStairsSlice(int dz, int startDz, int[][] lanes) {
+        int stepHeight = (dz - startDz) + 1; // 1, 2, 3, 4
+        if (stepHeight < 1 || stepHeight > 4) {
+            return;
+        }
+        for (int[] lane : lanes) {
+            for (int dx = lane[0]; dx <= lane[1]; dx++) {
+                for (int dy = 1; dy < stepHeight; dy++) {
+                    setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_BRICKS);
+                }
+                setStairBlock(dx, stepHeight, dz, Material.POLISHED_BLACKSTONE_BRICK_STAIRS, BlockFace.SOUTH);
+                // Garante espaco livre acima dos degraus
+                for (int dy = stepHeight + 1; dy <= stepHeight + 5; dy++) {
+                    setDungeonBlock(dx, dy, dz, Material.AIR);
+                }
+            }
+        }
+    }
+
+    /**
+     * Helper universal para escadarias largas que descem 4 blocos (dy = 4 -> 3 -> 2 -> 1) ao longo de 4 fatias Z.
+     */
+    private void buildDescendingStairsSlice(int dz, int startDz) {
+        int stepHeight = 4 - (dz - startDz); // 4, 3, 2, 1
+        if (stepHeight < 1 || stepHeight > 4) {
+            return;
+        }
+        int innerWidth = HALF_WIDTH - 2;
+        for (int dx = -innerWidth; dx <= innerWidth; dx++) {
+            for (int dy = 1; dy < stepHeight; dy++) {
+                setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_BRICKS);
+            }
+            setStairBlock(dx, stepHeight, dz, Material.POLISHED_BLACKSTONE_BRICK_STAIRS, BlockFace.NORTH);
+        }
+    }
+
+    /**
+     * Helper para escadas e ladders de retorno no inicio dos fossos de parkour (direcao -Z de volta ao balcao inicial).
+     */
+    private void buildPitRecoveryStairsAndLadders(int dz, int pitStartDz) {
+        if (dz == pitStartDz) {
+            for (int ladderX : new int[]{-14, -6, 0, 6, 14}) {
+                for (int dy = 1; dy <= 4; dy++) {
+                    setLadderBlock(ladderX, dy, dz, BlockFace.SOUTH);
+                }
+            }
+        }
+        if (dz >= pitStartDz && dz <= pitStartDz + 3) {
+            int stairY = 4 - (dz - pitStartDz); // pitStartDz+3 -> dy 1 .. pitStartDz -> dy 4
+            for (int dx : new int[]{-18, -17, 17, 18}) {
+                for (int dy = 1; dy < stairY; dy++) {
+                    setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_BRICKS);
+                }
+                setStairBlock(dx, stairY, dz, Material.POLISHED_BLACKSTONE_BRICK_STAIRS, BlockFace.NORTH);
+            }
+        }
+    }
+
     private void buildExteriorEntrancePlazaSlice(int dz) {
-        int plazaHalfWidth = 9;
+        int plazaHalfWidth = 10;
         for (int dx = -plazaHalfWidth; dx <= plazaHalfWidth; dx++) {
-            // Limpa vegetacao/blocos acima da praca
             for (int dy = 1; dy <= MAX_DY; dy++) {
                 setDungeonBlock(dx, dy, dz, Material.AIR);
             }
-            // Piso da praca e rampa frontal
             if (dz >= -6) {
                 Material floorMat = (Math.abs(dx) <= 2) ? Material.RED_NETHER_BRICKS : Material.POLISHED_BLACKSTONE_BRICKS;
                 setDungeonBlock(dx, 0, dz, floorMat);
-                // Fundacao ate 6 blocos abaixo para nao flutuar em encostas
                 for (int dy = -1; dy >= -5; dy--) {
                     setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_BRICKS);
                 }
             } else {
-                // Escadaria externa em dz = -10..-7
-                int stepY = dz + 6; // -1, -2, -3, -4
+                int stepY = dz + 6;
                 setDungeonBlock(dx, 0, dz, Material.POLISHED_BLACKSTONE_BRICKS);
                 for (int dy = -1; dy >= stepY - 3; dy--) {
                     setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_BRICKS);
@@ -576,7 +697,6 @@ public class DoomManager {
             }
         }
 
-        // Dois obeliscos demoniacos flanqueando a entrada em dz = -4, dx = -6 e +6
         if (dz == -4) {
             for (int side : new int[]{-6, 6}) {
                 for (int dy = 1; dy <= 6; dy++) {
@@ -589,13 +709,11 @@ public class DoomManager {
     }
 
     /**
-     * Salao 1: Patio da Carnificina (dz = 2 .. 24)
-     * - 4 grandes colunas, barricadas taticas para PvP de 5 times e 3 escadarias largas ao fundo subindo para dy = 4.
+     * SALA 1: Patio da Carnificina (dz = 2 .. 24)
      */
-    private void buildHall1CarnageSlice(int dz) {
-        // 4 Grandes Pilares 3x3 em (dx = ±8, dz = 8 e 17)
+    private void buildHall1CarnageSlice(int dz, int[][] exitStairLanes) {
         if (Math.abs(dz - 8) <= 1 || Math.abs(dz - 17) <= 1) {
-            for (int centerColX : new int[]{-8, 8}) {
+            for (int centerColX : new int[]{-9, 9}) {
                 for (int dx = centerColX - 1; dx <= centerColX + 1; dx++) {
                     for (int dy = 1; dy <= 15; dy++) {
                         boolean isCorner = Math.abs(dx - centerColX) == 1 && (Math.abs(dz - 8) == 1 || Math.abs(dz - 17) == 1);
@@ -605,9 +723,8 @@ public class DoomManager {
             }
         }
 
-        // Barricadas taticas de combate (dy = 1..2)
         if (dz == 6 || dz == 14) {
-            for (int dx = -4; dx <= 4; dx++) {
+            for (int dx = -5; dx <= 5; dx++) {
                 if (Math.abs(dx) >= 2) {
                     setDungeonBlock(dx, 1, dz, Material.POLISHED_BLACKSTONE_BRICKS);
                     setDungeonBlock(dx, 2, dz, Material.IRON_BARS);
@@ -615,25 +732,14 @@ public class DoomManager {
             }
         }
 
-        // 3 Escadarias largas (dz = 21..24) subindo do piso dy=1 para a plataforma do Salao 2 (dy=4)
         if (dz >= 21 && dz <= 24) {
-            int stepHeight = dz - 20; // dz 21 -> dy 1; dz 22 -> dy 2; dz 23 -> dy 3; dz 24 -> dy 4
-            int[][] stairLanes = {{-11, -9}, {-2, 2}, {9, 11}};
-            for (int[] lane : stairLanes) {
-                for (int dx = lane[0]; dx <= lane[1]; dx++) {
-                    for (int dy = 1; dy <= stepHeight; dy++) {
-                        setDungeonBlock(dx, dy, dz, (dy == stepHeight) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
-                    }
-                }
-            }
+            buildAscendingStairsSlice(dz, 21, exitStairLanes);
         }
     }
 
-    /**
-     * Parede divisoria entre saloes com arcos de passagem e base solida dy = 1..4 quando elevatedFloor = true.
-     */
     private void buildPartitionWall(int dz, int[][] doorwaysX, int doorMinY, int doorMaxY, boolean elevatedFloor) {
-        for (int dx = -(HALF_WIDTH - 2); dx <= (HALF_WIDTH - 2); dx++) {
+        int innerWidth = HALF_WIDTH - 2;
+        for (int dx = -innerWidth; dx <= innerWidth; dx++) {
             boolean inDoorX = false;
             boolean isDoorFrameX = false;
             for (int[] range : doorwaysX) {
@@ -659,17 +765,12 @@ public class DoomManager {
     }
 
     /**
-     * Salao 2: Abismo das Almas - Grande Parkour em 3 Rotas Paralelas (dz = 27 .. 55)
-     * - Balcao inicial: dz = 27..29 (piso em dy = 4, jogador em dy = 5)
-     * - Fosso de Magma/Areia das Almas: dz = 30..52 (piso em dy = 0, jogador cai em dy = 1)
-     * - Escadas e 5 colunas de escadas de mao (Ladders) em dz = 30..34 para quem cair voltar ao inicio e tentar de novo!
-     * - 3 rotas de plataformas de parkour (dx = -11..-9, dx = -1..+1, dx = +9..+11) com saltos de 2 blocos de vao.
-     * - Balcao final: dz = 53..55 (piso em dy = 4, bloqueado por baixo para impedir pular o parkour pelo chao).
+     * SALA 2: Abismo das Almas - Grande Parkour em 3 Rotas Paralelas (dz = 27 .. 55)
      */
     private void buildHall2ParkourAbyssSlice(int dz) {
-        // Balcao de partida (dz 27..29) e Balcao de chegada (dz 53..55)
+        int innerWidth = HALF_WIDTH - 2;
         if (dz <= 29 || dz >= 53) {
-            for (int dx = -16; dx <= 16; dx++) {
+            for (int dx = -innerWidth; dx <= innerWidth; dx++) {
                 for (int dy = 1; dy <= 4; dy++) {
                     setDungeonBlock(dx, dy, dz, (dy == 4) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
                 }
@@ -677,40 +778,18 @@ public class DoomManager {
             return;
         }
 
-        // Escadas de retorno no fundo do fosso (dz = 30..33) para nunca prender jogadores que cairem
-        if (dz == 30) {
-            for (int ladderX : new int[]{-13, -5, 0, 5, 13}) {
-                for (int dy = 1; dy <= 4; dy++) {
-                    setLadderBlock(ladderX, dy, dz, BlockFace.SOUTH);
-                }
-            }
-        }
-        if (dz >= 30 && dz <= 33) {
-            int stairY = 34 - dz; // dz 33 -> dy 1; dz 32 -> dy 2; dz 31 -> dy 3; dz 30 -> dy 4
-            for (int dx : new int[]{-16, -15, 15, 16}) {
-                for (int dy = 1; dy <= stairY; dy++) {
-                    setDungeonBlock(dx, dy, dz, Material.POLISHED_BLACKSTONE_BRICKS);
-                }
-            }
-        }
+        buildPitRecoveryStairsAndLadders(dz, 30);
 
-        // Balcoes laterais dos Spawners de Esqueleto/Blaze em dx = ±15 (dz = 36 e dz = 46)
         if (Math.abs(dz - 36) <= 1 || Math.abs(dz - 46) <= 1) {
-            for (int sideX : new int[]{-15, 15}) {
+            for (int sideX : new int[]{-17, 17}) {
                 for (int dx = sideX - 1; dx <= sideX + 1; dx++) {
-                    if (Math.abs(dx) <= 16) {
+                    if (Math.abs(dx) <= innerWidth) {
                         setDungeonBlock(dx, 5, dz, Material.NETHER_BRICKS);
                     }
                 }
             }
         }
 
-        // Plataformas das 3 rotas de Parkour:
-        // Pad 1: dz 32..33 (dy = 4)
-        // Pad 2: dz 36..37 (dy = 5)
-        // Pad 3: dz 40..42 (dy = 5) + pontes laterais em dz = 41
-        // Pad 4: dz 45..46 (dy = 6)
-        // Pad 5: dz 49..50 (dy = 5)
         int padY = -1;
         if (dz == 32 || dz == 33) {
             padY = 4;
@@ -725,16 +804,15 @@ public class DoomManager {
         }
 
         if (padY != -1) {
-            int[][] lanes = {{-11, -9}, {-1, 1}, {9, 11}};
+            int[][] lanes = {{-12, -10}, {-1, 1}, {10, 12}};
             for (int[] lane : lanes) {
                 for (int dx = lane[0]; dx <= lane[1]; dx++) {
                     boolean isCenter = (dx == (lane[0] + lane[1]) / 2);
                     setDungeonBlock(dx, padY, dz, isCenter ? Material.GILDED_BLACKSTONE : Material.POLISHED_BLACKSTONE_BRICKS);
                 }
             }
-            // Plataformas de cruzamento entre as 3 rotas no meio do abismo (dz = 41)
             if (dz == 41) {
-                for (int dx : new int[]{-6, -5, -4, 4, 5, 6}) {
+                for (int dx : new int[]{-7, -6, -5, -4, 4, 5, 6, 7}) {
                     setDungeonBlock(dx, padY, dz, Material.RED_NETHER_BRICKS);
                 }
             }
@@ -742,41 +820,25 @@ public class DoomManager {
     }
 
     /**
-     * Salao 3: Labirinto das Sombras (dz = 57 .. 79)
-     * - Escadaria de descida (dz = 57..60) do nivel dy=4 para o chao dy=0.
-     * - Labirinto simetrico de 5 grandes corredores com paredes de Deepslate e Grades de Ferro (dy = 1..5),
-     *   teias de aranha estrategicas e 8 spawners.
-     * - 3 escadarias de subida ao fundo (dz = 77..79) retornando ao nivel dy=4 para o Salao 4.
+     * SALA 3: Labirinto das Sombras (dz = 57 .. 80)
+     * - Escadaria de descida: dz = 57..60 (dy = 4 -> 3 -> 2 -> 1)
+     * - Labirinto de 5 corredores: dz = 62..75
+     * - Escadaria de subida CORRIGIDA (4 degraus suaves com escadas reais): dz = 77..80 (dy = 1 -> 2 -> 3 -> 4)!
      */
-    private void buildHall3ShadowMazeSlice(int dz) {
-        // Escadaria larga de descida na entrada do Salao 3 (dz = 57..60)
+    private void buildHall3ShadowMazeSlice(int dz, int[][] exitStairLanes) {
         if (dz >= 57 && dz <= 60) {
-            int stepY = 61 - dz; // dz 57 -> dy 4; dz 58 -> dy 3; dz 59 -> dy 2; dz 60 -> dy 1
-            for (int dx = -16; dx <= 16; dx++) {
-                for (int dy = 1; dy <= stepY; dy++) {
-                    setDungeonBlock(dx, dy, dz, (dy == stepY) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
-                }
-            }
+            buildDescendingStairsSlice(dz, 57);
             return;
         }
 
-        // 3 Escadarias de subida na saida do Salao 3 (dz = 77..79)
-        if (dz >= 77 && dz <= 79) {
-            int stepY = dz - 75; // dz 77 -> dy 2; dz 78 -> dy 3; dz 79 -> dy 4
-            int[][] exitLanes = {{-10, -8}, {-2, 2}, {8, 10}};
-            for (int[] lane : exitLanes) {
-                for (int dx = lane[0]; dx <= lane[1]; dx++) {
-                    for (int dy = 1; dy <= stepY; dy++) {
-                        setDungeonBlock(dx, dy, dz, (dy == stepY) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
-                    }
-                }
-            }
+        if (dz >= 77 && dz <= 80) {
+            buildAscendingStairsSlice(dz, 77, exitStairLanes);
             return;
         }
 
-        // Labirinto principal (dz = 62..75)
+        int innerWidth = HALF_WIDTH - 2;
         if (dz >= 62 && dz <= 75) {
-            for (int dx = -16; dx <= 16; dx++) {
+            for (int dx = -innerWidth; dx <= innerWidth; dx++) {
                 if (isMazeWall(dx, dz)) {
                     for (int dy = 1; dy <= 5; dy++) {
                         Material wallMat = (dy == 3 && (Math.abs(dx) + dz) % 2 == 0)
@@ -784,51 +846,40 @@ public class DoomManager {
                                 : Material.DEEPSLATE_TILES;
                         setDungeonBlock(dx, dy, dz, wallMat);
                     }
-                } else if ((dz == 64 || dz == 71) && (Math.abs(dx) == 14 || Math.abs(dx) == 3)) {
-                    // Armadilhas de teia nos cantos dos corredores
+                } else if ((dz == 64 || dz == 71) && (Math.abs(dx) == 15 || Math.abs(dx) == 3)) {
                     setDungeonBlock(dx, 1, dz, Material.COBWEB);
                 }
             }
         }
     }
 
-    /**
-     * Define as paredes do Labirinto das Sombras garantindo 5 corredores longitudinais largos (3 blocos cada)
-     * e 3 avenidas transversais com desvios taticos (100% transitavel por todas as 5 equipes).
-     */
     private boolean isMazeWall(int dx, int dz) {
-        // Avenidas transversais abertas em dz = 65..66 e dz = 72..73
         if (dz == 65 || dz == 66 || dz == 72 || dz == 73) {
             return false;
         }
-        // Paredes longitudinais separando os 5 corredores em |dx| = 4, 5 e |dx| = 10, 11
         int absX = Math.abs(dx);
         if (absX == 4 || absX == 5 || absX == 10 || absX == 11) {
             return true;
         }
-        // Chicanes (bloqueios alternados) que forcam os jogadores a trocar de corredor nas encruzilhadas
         if (dz == 63 && absX <= 3) {
-            return true; // Bloqueia corredor central no inicio, forcando ir pelas laterais
+            return true;
         }
         if (dz == 69 && (absX >= 6 && absX <= 9)) {
-            return true; // Bloqueia corredores intermediarios no meio, forcando ir pelo centro ou extremos
+            return true;
         }
         if (dz == 75 && absX >= 12) {
-            return true; // Bloqueia extremos no final, convergindo para as 3 escadas de saida
+            return true;
         }
         return false;
     }
 
     /**
-     * Salao 4: Pontes do Julgamento (dz = 81 .. 95)
-     * - Balcao inicial: dz = 81..82 (dy = 4)
-     * - Garganta de Magma: dz = 83..92 com escadas laterais de retorno (dx = ±15..16, dz = 83..86) e escadas de mao
-     * - 3 Pontes quebradas de parkour (dx = -10..-8, dx = -1..+1, dx = +8..+10) flanqueadas por 4 torres de Blaze/Esqueleto
-     * - Balcao final antes do Santuario: dz = 93..95 (dy = 4)
+     * SALA 4: Pontes do Julgamento (dz = 82 .. 100)
      */
     private void buildHall4JudgmentBridgesSlice(int dz) {
-        if (dz <= 82 || dz >= 93) {
-            for (int dx = -16; dx <= 16; dx++) {
+        int innerWidth = HALF_WIDTH - 2;
+        if (dz <= 84 || dz >= 97) {
+            for (int dx = -innerWidth; dx <= innerWidth; dx++) {
                 for (int dy = 1; dy <= 4; dy++) {
                     setDungeonBlock(dx, dy, dz, (dy == 4) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
                 }
@@ -836,44 +887,27 @@ public class DoomManager {
             return;
         }
 
-        // Escadas de mao e degraus de retorno em dz = 83..86 caso o jogador caia na garganta
-        if (dz == 83) {
-            for (int ladderX : new int[]{-12, 0, 12}) {
-                for (int dy = 1; dy <= 4; dy++) {
-                    setLadderBlock(ladderX, dy, dz, BlockFace.SOUTH);
-                }
-            }
-        }
-        if (dz >= 83 && dz <= 86) {
-            int stairY = 87 - dz; // dz 86 -> dy 1 .. dz 83 -> dy 4
-            for (int dx : new int[]{-16, -15, 15, 16}) {
-                for (int dy = 1; dy <= stairY; dy++) {
-                    setDungeonBlock(dx, dy, dz, Material.POLISHED_BLACKSTONE_BRICKS);
-                }
-            }
-        }
+        buildPitRecoveryStairsAndLadders(dz, 85);
 
-        // 4 Torres de Spawners entre as pontes (dx = -4 e +4, dz = 86 e 90)
-        if (dz == 86 || dz == 90) {
-            for (int towerX : new int[]{-4, 4}) {
+        if (dz == 88 || dz == 93) {
+            for (int towerX : new int[]{-5, 5}) {
                 for (int dy = 1; dy <= 4; dy++) {
                     setDungeonBlock(towerX, dy, dz, Material.CRYING_OBSIDIAN);
                 }
             }
         }
 
-        // Segmentos de Parkour das 3 Pontes Quebradas:
-        // Segmento A: dz = 85..86 (dy = 4)
-        // Segmento B: dz = 89..90 (dy = 5)
         int bridgeY = -1;
-        if (dz == 85 || dz == 86) {
+        if (dz == 87 || dz == 88) {
             bridgeY = 4;
-        } else if (dz == 89 || dz == 90) {
+        } else if (dz == 91 || dz == 92) {
             bridgeY = 5;
+        } else if (dz == 94 || dz == 95) {
+            bridgeY = 4;
         }
 
         if (bridgeY != -1) {
-            int[][] bridgeLanes = {{-10, -8}, {-1, 1}, {8, 10}};
+            int[][] bridgeLanes = {{-12, -10}, {-1, 1}, {10, 12}};
             for (int[] lane : bridgeLanes) {
                 for (int dx = lane[0]; dx <= lane[1]; dx++) {
                     boolean center = (dx == (lane[0] + lane[1]) / 2);
@@ -884,19 +918,247 @@ public class DoomManager {
     }
 
     /**
-     * Salao 5: Santuario do DOOM (dz = 97 .. 112)
-     * - Piso imperial elevado em dy = 4 (jogadores caminham em dy = 5)
-     * - Colunas de lava nos 4 cantos protegidas por vidro vermelho
-     * - Altar piramidal em (dx = 0, dz = 107) com o Bau Final em (dx = 0, dy = 8, dz = 107)
+     * SALA 5 (NOVA): Catacumbas Congeladas (dz = 102 .. 125)
+     * - Escadaria de descida: dz = 102..105 (dy = 4 -> 3 -> 2 -> 1)
+     * - Arena de Gelo Azul escorregadio com pilares de Gelo Compactado, braseiros de Fogo das Almas,
+     *   armadilhas de teia/neve fofa e 6 Spawners de Strays/Wither Skeletons/Vindicators.
+     * - Escadaria de subida: dz = 122..125 (dy = 1 -> 2 -> 3 -> 4)
      */
-    private void buildHall5DoomSanctumSlice(int dz) {
-        for (int dx = -16; dx <= 16; dx++) {
+    private void buildHall5FrozenCatacombsSlice(int dz, int[][] exitStairLanes) {
+        if (dz >= 102 && dz <= 105) {
+            buildDescendingStairsSlice(dz, 102);
+            return;
+        }
+        if (dz >= 122 && dz <= 125) {
+            buildAscendingStairsSlice(dz, 122, exitStairLanes);
+            return;
+        }
+
+        // Pilares de Gelo e Obsidiana Chorona (dz = 109, 114, 119)
+        if (dz == 109 || dz == 114 || dz == 119) {
+            for (int colX : new int[]{-10, 0, 10}) {
+                if (dz == 114 && colX == 0) continue; // Centro livre para o Spawner
+                for (int dx = colX - 1; dx <= colX + 1; dx++) {
+                    for (int dy = 1; dy <= 15; dy++) {
+                        boolean isCore = (dx == colX);
+                        setDungeonBlock(dx, dy, dz, isCore ? Material.CRYING_OBSIDIAN : Material.PACKED_ICE);
+                    }
+                }
+            }
+        }
+
+        // Barricadas congeladas e teias nas laterais
+        if (dz == 111 || dz == 116) {
+            for (int dx : new int[]{-15, -5, 5, 15}) {
+                setDungeonBlock(dx, 1, dz, Material.BLUE_ICE);
+                setDungeonBlock(dx, 2, dz, Material.SOUL_LANTERN);
+            }
+            setDungeonBlock(-17, 1, dz, Material.COBWEB);
+            setDungeonBlock(17, 1, dz, Material.COBWEB);
+        }
+    }
+
+    /**
+     * SALA 6 (NOVA): Espiral do Vacuo - Parkour de 5 Rotas de Pilares Ascendentes (dz = 127 .. 152)
+     * - 5 rotas paralelas (uma para cada equipe!) que sobem ate dy = 7 no centro e descem ate o balcao final.
+     * - Passarela transversal no topo (dz = 140) conectando todas as 5 rotas.
+     */
+    private void buildHall6VoidSpiralParkourSlice(int dz) {
+        int innerWidth = HALF_WIDTH - 2;
+        if (dz <= 129 || dz >= 150) {
+            for (int dx = -innerWidth; dx <= innerWidth; dx++) {
+                for (int dy = 1; dy <= 4; dy++) {
+                    setDungeonBlock(dx, dy, dz, (dy == 4) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
+                }
+            }
+            return;
+        }
+
+        buildPitRecoveryStairsAndLadders(dz, 130);
+
+        if (Math.abs(dz - 136) <= 1 || Math.abs(dz - 144) <= 1) {
+            for (int sideX : new int[]{-17, 17}) {
+                for (int dx = sideX - 1; dx <= sideX + 1; dx++) {
+                    if (Math.abs(dx) <= innerWidth) {
+                        setDungeonBlock(dx, 6, dz, Material.NETHER_BRICKS);
+                    }
+                }
+            }
+        }
+
+        int padY = -1;
+        if (dz == 132 || dz == 133) {
+            padY = 5;
+        } else if (dz == 136 || dz == 137) {
+            padY = 6;
+        } else if (dz >= 139 && dz <= 141) {
+            padY = 7;
+        } else if (dz == 144 || dz == 145) {
+            padY = 6;
+        } else if (dz == 147 || dz == 148) {
+            padY = 5;
+        }
+
+        if (padY != -1) {
+            int[][] fiveTeamLanes = {{-15, -13}, {-8, -6}, {-1, 1}, {6, 8}, {13, 15}};
+            for (int[] lane : fiveTeamLanes) {
+                for (int dx = lane[0]; dx <= lane[1]; dx++) {
+                    boolean center = (dx == (lane[0] + lane[1]) / 2);
+                    setDungeonBlock(dx, padY, dz, center ? Material.GOLD_BLOCK : Material.POLISHED_BLACKSTONE_BRICKS);
+                }
+            }
+            if (dz == 140) {
+                for (int dx = -15; dx <= 15; dx++) {
+                    setDungeonBlock(dx, padY, dz, (Math.abs(dx) % 2 == 0) ? Material.RED_NETHER_BRICKS : Material.GILDED_BLACKSTONE);
+                }
+            }
+        }
+    }
+
+    /**
+     * SALA 7 (NOVA): Forja Infernal (dz = 154 .. 177)
+     * - Escadaria de descida: dz = 154..157
+     * - 3 Grandes Fornalhas/Caldeiroes de Lava cercados por Grades de Ferro e Deepslate no centro,
+     *   passarelas taticas de combate e 6 Spawners de Blazes, Wither Skeletons e Vindicators.
+     * - Escadaria de subida: dz = 174..177
+     */
+    private void buildHall7InfernalForgeSlice(int dz, int[][] exitStairLanes) {
+        if (dz >= 154 && dz <= 157) {
+            buildDescendingStairsSlice(dz, 154);
+            return;
+        }
+        if (dz >= 174 && dz <= 177) {
+            buildAscendingStairsSlice(dz, 174, exitStairLanes);
+            return;
+        }
+
+        // 3 Grandes Caldeiroes de Forja (centros em dz = 161, 166, 171 e dx = -9, 0, +9)
+        for (int forgeZ : new int[]{161, 166, 171}) {
+            if (Math.abs(dz - forgeZ) <= 1) {
+                for (int forgeX : new int[]{-9, 0, 9}) {
+                    for (int dx = forgeX - 1; dx <= forgeX + 1; dx++) {
+                        boolean isCenter = (dx == forgeX && dz == forgeZ);
+                        setDungeonBlock(dx, 1, dz, isCenter ? Material.LAVA : Material.POLISHED_BLACKSTONE_BRICKS);
+                        setDungeonBlock(dx, 2, dz, isCenter ? Material.LAVA : Material.IRON_BARS);
+                        setDungeonBlock(dx, 3, dz, isCenter ? Material.AIR : Material.IRON_BARS);
+                        setDungeonBlock(dx, 4, dz, Material.DEEPSLATE_TILES);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * SALA 8 (NOVA): Pendulos da Morte - Parkour com Correntes e Obstaculos Suspensos (dz = 179 .. 203)
+     */
+    private void buildHall8PendulumParkourSlice(int dz) {
+        int innerWidth = HALF_WIDTH - 2;
+        if (dz <= 181 || dz >= 200) {
+            for (int dx = -innerWidth; dx <= innerWidth; dx++) {
+                for (int dy = 1; dy <= 4; dy++) {
+                    setDungeonBlock(dx, dy, dz, (dy == 4) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
+                }
+            }
+            return;
+        }
+
+        buildPitRecoveryStairsAndLadders(dz, 182);
+
+        if (Math.abs(dz - 186) <= 1 || Math.abs(dz - 194) <= 1) {
+            for (int sideX : new int[]{-17, 17}) {
+                for (int dx = sideX - 1; dx <= sideX + 1; dx++) {
+                    if (Math.abs(dx) <= innerWidth) {
+                        setDungeonBlock(dx, 5, dz, Material.NETHER_BRICKS);
+                    }
+                }
+            }
+        }
+
+        int padY = -1;
+        if (dz == 184 || dz == 185) {
+            padY = 4;
+        } else if (dz == 188 || dz == 189) {
+            padY = 5;
+        } else if (dz == 192 || dz == 193) {
+            padY = 5;
+        } else if (dz == 196 || dz == 197) {
+            padY = 4;
+        }
+
+        if (padY != -1) {
+            int[][] lanes = {{-12, -10}, {-1, 1}, {10, 12}};
+            for (int[] lane : lanes) {
+                int centerLaneX = (lane[0] + lane[1]) / 2;
+                for (int dx = lane[0]; dx <= lane[1]; dx++) {
+                    setDungeonBlock(dx, padY, dz, (dx == centerLaneX) ? Material.GILDED_BLACKSTONE : Material.POLISHED_BLACKSTONE_BRICKS);
+                }
+                // Pendulo suspenso do teto no centro da plataforma em dz = 188 e dz = 193, exigindo contornar pela borda da plataforma
+                if (dz == 188 || dz == 193) {
+                    setDungeonBlock(centerLaneX, padY + 1, dz, Material.CRYING_OBSIDIAN);
+                    setDungeonBlock(centerLaneX, padY + 2, dz, Material.CRYING_OBSIDIAN);
+                    for (int cy = padY + 3; cy <= 15; cy++) {
+                        setDungeonBlock(centerLaneX, cy, dz, Material.IRON_BARS);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * SALA 9 (NOVA): Coliseu dos Campeoes - Pre-Camara de Guerra das 5 Equipes (dz = 205 .. 226)
+     * - Arena em nivel elevado (dy = 4, jogadores em dy = 5) com arquibancadas laterais,
+     *   ringue central de Ouro e Obsidiana Chorona e 6 Spawners de Elite antes do Portao do Santuario.
+     */
+    private void buildHall9ChampionsColiseumSlice(int dz) {
+        int innerWidth = HALF_WIDTH - 2;
+        for (int dx = -innerWidth; dx <= innerWidth; dx++) {
+            for (int dy = 1; dy <= 4; dy++) {
+                setDungeonBlock(dx, dy, dz, (dy == 4) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.DEEPSLATE_BRICKS);
+            }
+            // Arquibancadas laterais em degraus (|dx| >= 15)
+            int absX = Math.abs(dx);
+            if (absX >= 15) {
+                int bleacherH = 4 + (absX - 14);
+                for (int dy = 5; dy <= bleacherH; dy++) {
+                    setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_TILE_SLAB);
+                }
+            }
+        }
+
+        // Ringue central de combate (centro em dx = 0, dz = 215, raio 5)
+        int distZ = Math.abs(dz - 215);
+        if (distZ <= 5) {
+            for (int dx = -5; dx <= 5; dx++) {
+                int cheb = Math.max(Math.abs(dx), distZ);
+                if (cheb == 5) {
+                    setDungeonBlock(dx, 4, dz, Material.GILDED_BLACKSTONE);
+                    if (Math.abs(dx) == 5 && distZ == 5) {
+                        for (int dy = 5; dy <= 8; dy++) {
+                            setDungeonBlock(dx, dy, dz, Material.CRYING_OBSIDIAN);
+                        }
+                        setDungeonBlock(dx, 9, dz, Material.NETHERRACK);
+                        setDungeonBlock(dx, 10, dz, Material.SOUL_FIRE);
+                    }
+                } else if (cheb <= 2) {
+                    setDungeonBlock(dx, 4, dz, Material.RED_NETHER_BRICKS);
+                }
+            }
+        }
+    }
+
+    /**
+     * SALA 10: Santuario do DOOM (dz = 228 .. 244)
+     * - Altar Central em (dx = 0, dz = 238) com o Bau Final de +200 Pontos em (dx = 0, dy = 8, dz = 238)
+     */
+    private void buildHall10DoomSanctumSlice(int dz) {
+        int innerWidth = HALF_WIDTH - 2;
+        for (int dx = -innerWidth; dx <= innerWidth; dx++) {
             for (int dy = 1; dy <= 4; dy++) {
                 if (dy < 4) {
                     setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_BRICKS);
                 } else {
                     boolean isRoyalCarpet = Math.abs(dx) <= 3;
-                    boolean isRuneRing = (Math.abs(dx) == 6 || Math.abs(dz - 107) == 4) && Math.abs(dx) <= 8;
+                    boolean isRuneRing = (Math.abs(dx) == 7 || Math.abs(dz - 238) == 4) && Math.abs(dx) <= 9;
                     if (isRoyalCarpet) {
                         setDungeonBlock(dx, 4, dz, Material.RED_NETHER_BRICKS);
                     } else if (isRuneRing) {
@@ -908,10 +1170,10 @@ public class DoomManager {
             }
         }
 
-        // Colunas de Lava nos 4 cantos (dx = ±14, dz = 99 e 110)
-        if (Math.abs(dz - 99) <= 1 || Math.abs(dz - 110) <= 1) {
-            int centerZ = (Math.abs(dz - 99) <= 1) ? 99 : 110;
-            for (int cornerX : new int[]{-14, 14}) {
+        // Colunas de Lava nos 4 cantos (dx = ±15, dz = 230 e 241)
+        if (Math.abs(dz - 230) <= 1 || Math.abs(dz - 241) <= 1) {
+            int centerZ = (Math.abs(dz - 230) <= 1) ? 230 : 241;
+            for (int cornerX : new int[]{-15, 15}) {
                 for (int dx = cornerX - 1; dx <= cornerX + 1; dx++) {
                     for (int dy = 5; dy <= 15; dy++) {
                         boolean isCore = (dx == cornerX && dz == centerZ);
@@ -921,20 +1183,17 @@ public class DoomManager {
             }
         }
 
-        // Altar Central do Bau DOOM (centro em dx = 0, dz = 107)
-        int distZ = Math.abs(dz - 107);
+        // Altar Central do Bau DOOM (centro em dx = 0, dz = 238)
+        int distZ = Math.abs(dz - 238);
         if (distZ <= 2) {
             for (int dx = -2; dx <= 2; dx++) {
                 int chebyshev = Math.max(Math.abs(dx), distZ);
-                // Camada 1 do altar: dy = 5 (5x5)
                 setDungeonBlock(dx, 5, dz, (chebyshev == 2) ? Material.POLISHED_BLACKSTONE_BRICKS : Material.CRYING_OBSIDIAN);
-                // Camada 2 do altar: dy = 6 (3x3)
                 if (chebyshev <= 1) {
                     setDungeonBlock(dx, 6, dz, (chebyshev == 1) ? Material.GILDED_BLACKSTONE : Material.CRYING_OBSIDIAN);
                 }
-                // Camada 3 do altar: dy = 7 (1x1 Bloco de Ouro sob o Bau + 4 fogos das almas nos cantos)
                 if (chebyshev == 0) {
-                    setDungeonBlock(0, 7, 107, Material.GOLD_BLOCK);
+                    setDungeonBlock(0, 7, 238, Material.GOLD_BLOCK);
                 } else if (Math.abs(dx) == 1 && distZ == 1) {
                     setDungeonBlock(dx, 7, dz, Material.SOUL_LANTERN);
                 }
@@ -947,7 +1206,7 @@ public class DoomManager {
             return;
         }
 
-        // 1. Configura todos os 28 Spawners nos 5 saloes
+        // 1. Configura todos os 54 Spawners distribuidos pelas 10 salas
         for (SpawnerPoint sp : spawnerPoints) {
             if (sp.dy() > 1) {
                 setDungeonBlock(sp.dx(), sp.dy() - 1, sp.dz(), Material.CHISELED_POLISHED_BLACKSTONE);
@@ -966,11 +1225,11 @@ public class DoomManager {
             }
         }
 
-        // 2. Posiciona e abastece o Bau Final com o Coracao do Doom (+200 pts) e tesouros extras
-        setDungeonBlock(0, 8, 107, Material.CHEST);
-        Block chestBlock = dungeonWorld.getBlockAt(originX, baseY + 8, originZ + 107);
+        // 2. Posiciona e abastece o Bau Final na 10a Sala (dx = 0, dy = 8, dz = 238)
+        setDungeonBlock(0, 8, 238, Material.CHEST);
+        Block chestBlock = dungeonWorld.getBlockAt(originX, baseY + 8, originZ + 238);
         if (chestBlock.getBlockData() instanceof Directional directional) {
-            directional.setFacing(BlockFace.NORTH); // Virado para quem chega da entrada
+            directional.setFacing(BlockFace.NORTH);
             chestBlock.setBlockData(directional, false);
         }
         if (chestBlock.getState() instanceof Chest chest) {
@@ -980,14 +1239,14 @@ public class DoomManager {
             inv.setItem(10, new ItemStack(Material.DIAMOND, 12));
             inv.setItem(11, new ItemStack(Material.GOLDEN_APPLE, 6));
             inv.setItem(12, new ItemStack(Material.NETHERITE_INGOT, 1));
-            inv.setItem(13, createDoomArtifactItem()); // Centro: O Item de +200 Pontos!
+            inv.setItem(13, createDoomArtifactItem());
             inv.setItem(14, new ItemStack(Material.NETHERITE_INGOT, 1));
             inv.setItem(15, new ItemStack(Material.GOLDEN_APPLE, 6));
             inv.setItem(16, new ItemStack(Material.DIAMOND, 12));
             inv.setItem(22, new ItemStack(Material.TOTEM_OF_UNDYING, 1));
         }
 
-        // 3. Spawna o Esquadrao de Guardioes de Elite iniciais no Santuario e nos Saloes
+        // 3. Spawna os Guardioes de Elite iniciais
         spawnInitialDungeonGuardians();
 
         // 4. Ativa estado oficial do evento, Hologramas, BossBar, Bussolas e Waypoint do Xaero
@@ -1003,7 +1262,7 @@ public class DoomManager {
 
         if (initiator != null) {
             initiator.sendMessage(Component.text(
-                    "✔ Fortaleza DOOM gerada com sucesso! Entrada em X: " + entranceLocation.getBlockX()
+                    "✔ Fortaleza DOOM (10 Salões) gerada com sucesso! Entrada em X: " + entranceLocation.getBlockX()
                             + ", Y: " + entranceLocation.getBlockY()
                             + ", Z: " + entranceLocation.getBlockZ(),
                     NamedTextColor.GREEN));
@@ -1021,7 +1280,7 @@ public class DoomManager {
                         + ", Z: " + entranceLocation.getBlockZ(), NamedTextColor.WHITE, TextDecoration.BOLD))
                 .append(Component.text(" (Overworld)", NamedTextColor.DARK_GRAY)));
         Bukkit.broadcast(Component.text("  Desafios: ", NamedTextColor.GRAY)
-                .append(Component.text("5 Salões • Parkour • Labirinto • Hordas", NamedTextColor.GOLD)));
+                .append(Component.text("10 Salões • Parkours • Labirinto • Gelo • Forja • Hordas", NamedTextColor.GOLD)));
         Bukkit.broadcast(Component.text("  Baú Final: ", NamedTextColor.GRAY)
                 .append(Component.text("🔥 Coração do Doom (+" + DOOM_REWARD_POINTS + " PONTOS)", NamedTextColor.GREEN, TextDecoration.BOLD)));
         Bukkit.broadcast(Component.text("==============================================", NamedTextColor.DARK_RED, TextDecoration.BOLD));
@@ -1030,7 +1289,7 @@ public class DoomManager {
         Title startTitle = Title.title(
                 Component.text("💀 FORTALEZA DOOM 💀", NamedTextColor.DARK_RED, TextDecoration.BOLD),
                 Component.text("Entrada: X " + entranceLocation.getBlockX() + ", Z " + entranceLocation.getBlockZ()
-                        + " | Baú: +" + DOOM_REWARD_POINTS + " pts", NamedTextColor.GOLD),
+                        + " | 10 Salões | +" + DOOM_REWARD_POINTS + " pts", NamedTextColor.GOLD),
                 Title.Times.times(Duration.ofMillis(400), Duration.ofSeconds(4), Duration.ofMillis(800))
         );
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -1043,16 +1302,16 @@ public class DoomManager {
         if (dungeonWorld == null) {
             return;
         }
-        // Chefe Guardiao do Altar no Salao 5
-        Location bossLoc = new Location(dungeonWorld, originX + 0.5, baseY + 5, originZ + 103.5);
+        // Chefe Guardiao do Altar na 10a Sala
+        Location bossLoc = new Location(dungeonWorld, originX + 0.5, baseY + 5, originZ + 234.5);
         dungeonWorld.spawn(bossLoc, WitherSkeleton.class, boss -> {
             tagDungeonMob(boss);
             boss.customName(Component.text("💀 Guardião Supremo DOOM", NamedTextColor.DARK_RED, TextDecoration.BOLD));
             boss.setCustomNameVisible(true);
             AttributeInstance maxHp = boss.getAttribute(Attribute.MAX_HEALTH);
             if (maxHp != null) {
-                maxHp.setBaseValue(100.0);
-                boss.setHealth(100.0);
+                maxHp.setBaseValue(120.0);
+                boss.setHealth(120.0);
             }
             EntityEquipment eq = boss.getEquipment();
             if (eq != null) {
@@ -1069,8 +1328,8 @@ public class DoomManager {
             }
         });
 
-        // 4 Guardas Brutos de Elite no Santuario
-        int[][] bruteOffsets = {{-5, 102}, {5, 102}, {-4, 108}, {4, 108}};
+        // 6 Guardas Brutos de Elite (2 no Coliseu Sala 9 + 4 no Santuario Sala 10)
+        int[][] bruteOffsets = {{-4, 215}, {4, 215}, {-5, 233}, {5, 233}, {-4, 239}, {4, 239}};
         for (int[] offset : bruteOffsets) {
             Location bruteLoc = new Location(dungeonWorld, originX + offset[0] + 0.5, baseY + 5, originZ + offset[1] + 0.5);
             dungeonWorld.spawn(bruteLoc, PiglinBrute.class, brute -> {
@@ -1089,9 +1348,6 @@ public class DoomManager {
         spawnedMobIds.add(mob.getUniqueId());
     }
 
-    /**
-     * Reivindica o Coracao do Doom (+200 pontos) para a equipe do jogador que o pegou no bau final.
-     */
     public void claimArtifact(Player player, Team team) {
         if (!active || artifactClaimed || player == null || team == null) {
             return;
@@ -1150,7 +1406,6 @@ public class DoomManager {
         updateBossBar();
         updateEventCompasses();
 
-        // Particulas na Entrada Unica e no Altar Final
         if (entranceLocation != null) {
             dungeonWorld.spawnParticle(Particle.SOUL_FIRE_FLAME, entranceLocation.clone().add(0, 1.5, 2.0), 15, 1.6, 1.2, 0.4, 0.02);
         }
@@ -1159,12 +1414,10 @@ public class DoomManager {
             dungeonWorld.spawnParticle(Particle.TOTEM_OF_UNDYING, chestLocation.clone().add(0.5, 1.1, 0.5), 8, 0.35, 0.4, 0.35, 0.05);
         }
 
-        // A cada 6 segundos, ativa ondas extras nos spawners proximos a jogadores dentro da dungeon
         if (tickCounter % 6 == 0 && !artifactClaimed) {
             pulseNearbySpawners();
         }
 
-        // Contagem regressiva de colapso apos o Coracao do Doom ser conquistado
         if (artifactClaimed) {
             collapseSecondsRemaining--;
             if (collapseSecondsRemaining == 30 || collapseSecondsRemaining == 15 || (collapseSecondsRemaining <= 5 && collapseSecondsRemaining > 0)) {
@@ -1181,10 +1434,6 @@ public class DoomManager {
         }
     }
 
-    /**
-     * Garante que os spawners da dungeon gerem monstros ativamente quando houver jogadores por perto,
-     * mesmo onde houver iluminacao decorativa.
-     */
     private void pulseNearbySpawners() {
         if (dungeonWorld == null) {
             return;
@@ -1193,7 +1442,7 @@ public class DoomManager {
             Entity e = Bukkit.getEntity(uuid);
             return e == null || !e.isValid() || e.isDead();
         });
-        if (spawnedMobIds.size() >= 65) {
+        if (spawnedMobIds.size() >= 90) {
             return;
         }
 
@@ -1221,7 +1470,6 @@ public class DoomManager {
                 continue;
             }
 
-            // Encontra uma posicao livre ao redor do spawner para invocar 1-2 monstros
             int offsetX = ThreadLocalRandom.current().nextInt(-2, 3);
             int offsetZ = ThreadLocalRandom.current().nextInt(-2, 3);
             if (offsetX == 0 && offsetZ == 0) {
@@ -1269,6 +1517,20 @@ public class DoomManager {
             buildTask = null;
         }
         boolean wasActiveOrGenerating = this.active || this.generating;
+
+        // Salva os jogadores que estao dentro antes de desativar a flag active
+        List<Player> evacuatedPlayers = new ArrayList<>();
+        if (dungeonWorld != null) {
+            for (Player p : dungeonWorld.getPlayers()) {
+                if (isProtectedLocation(p.getLocation())) {
+                    evacuatedPlayers.add(p);
+                }
+            }
+        }
+
+        // Remove 100% dos monstros da dungeon (incluindo os gerados pelos spawners vanilla)
+        removeDungeonMobs();
+
         this.active = false;
         this.generating = false;
         this.artifactClaimed = false;
@@ -1279,26 +1541,13 @@ public class DoomManager {
         }
         clearBossBar();
         removeHolograms();
-        removeDungeonMobs();
 
-        // Evacua com seguranca qualquer jogador dentro da estrutura antes de restaurar o terreno
-        List<Player> evacuatedPlayers = new ArrayList<>();
-        if (dungeonWorld != null) {
-            for (Player p : dungeonWorld.getPlayers()) {
-                if (isProtectedLocation(p.getLocation())) {
-                    evacuatedPlayers.add(p);
-                }
-            }
-        }
-
-        // Esvazia o bau final antes de restaurar os blocos para nao dropar itens no chao
         if (chestLocation != null && chestLocation.getBlock().getState() instanceof Chest chest) {
             chest.getBlockInventory().clear();
         }
 
         restoreOriginalBlocks();
 
-        // Teleporta jogadores evacuados para o topo natural do terreno restaurado
         for (Player p : evacuatedPlayers) {
             Location safe = p.getLocation();
             int safeY = safe.getWorld().getHighestBlockYAt(safe.getBlockX(), safe.getBlockZ()) + 1;
@@ -1316,12 +1565,18 @@ public class DoomManager {
         this.spawnerPoints.clear();
 
         if (wasActiveOrGenerating && announceCancel) {
-            Bukkit.broadcast(Component.text("💀 A Fortaleza DOOM desapareceu nas sombras e o terreno foi restaurado.", NamedTextColor.RED));
+            Bukkit.broadcast(Component.text("💀 A Fortaleza DOOM desapareceu nas sombras, todos os monstros sumiram e o terreno foi restaurado.", NamedTextColor.RED));
         }
     }
 
     private void setDungeonBlock(int dx, int dy, int dz, Material material) {
         setDungeonBlockData(dx, dy, dz, Bukkit.createBlockData(material));
+    }
+
+    private void setStairBlock(int dx, int dy, int dz, Material stairMaterial, BlockFace facing) {
+        Stairs stairs = (Stairs) Bukkit.createBlockData(stairMaterial);
+        stairs.setFacing(facing);
+        setDungeonBlockData(dx, dy, dz, stairs);
     }
 
     private void setLadderBlock(int dx, int dy, int dz, BlockFace facing) {
@@ -1363,6 +1618,12 @@ public class DoomManager {
         originalBlocks.clear();
     }
 
+    /**
+     * Remove todos os monstros da Fortaleza DOOM:
+     * 1) Todos os UUIDs registrados em spawnedMobIds
+     * 2) Todas as entidades com a tag doomMobKey
+     * 3) Qualquer Mob/Monster que esteja dentro ou ao redor da caixa delimitadora da estrutura!
+     */
     private void removeDungeonMobs() {
         for (UUID id : spawnedMobIds) {
             Entity entity = Bukkit.getEntity(id);
@@ -1371,10 +1632,31 @@ public class DoomManager {
             }
         }
         spawnedMobIds.clear();
+
         if (dungeonWorld != null) {
-            for (Entity entity : dungeonWorld.getEntitiesByClass(LivingEntity.class)) {
+            int minX = originX - HALF_WIDTH - 15;
+            int maxX = originX + HALF_WIDTH + 15;
+            int minY = baseY + MIN_DY - 10;
+            int maxY = baseY + MAX_DY + 10;
+            int minZ = originZ + MIN_DZ - 15;
+            int maxZ = originZ + MAX_DZ + 15;
+
+            for (LivingEntity entity : dungeonWorld.getEntitiesByClass(LivingEntity.class)) {
+                if (entity instanceof Player) {
+                    continue;
+                }
                 if (entity.getPersistentDataContainer().has(doomMobKey, PersistentDataType.BYTE)) {
                     entity.remove();
+                    continue;
+                }
+                Location loc = entity.getLocation();
+                int x = loc.getBlockX();
+                int y = loc.getBlockY();
+                int z = loc.getBlockZ();
+                if (x >= minX && x <= maxX && y >= minY && y <= maxY && z >= minZ && z <= maxZ) {
+                    if (entity instanceof Monster || entity instanceof Mob) {
+                        entity.remove();
+                    }
                 }
             }
         }
@@ -1402,7 +1684,7 @@ public class DoomManager {
         if (entranceLocation != null) {
             Location holoLoc = new Location(dungeonWorld, originX + 0.5, baseY + 6.8, originZ - 0.5);
             Component text = Component.text("💀 FORTALEZA DOOM 💀\n", NamedTextColor.DARK_RED, TextDecoration.BOLD)
-                    .append(Component.text("Entrada Única — 5 Salões de Desafio\n", NamedTextColor.GOLD))
+                    .append(Component.text("Entrada Única — 10 Salões de Desafio\n", NamedTextColor.GOLD))
                     .append(Component.text("Baú Final: +" + DOOM_REWARD_POINTS + " Pontos de Equipe", NamedTextColor.GREEN, TextDecoration.BOLD));
             entranceHologramId = updateSingleHologram(entranceHologramId, holoLoc, text);
         }
@@ -1470,12 +1752,12 @@ public class DoomManager {
             progress = Math.max(0.0f, Math.min(1.0f, (float) collapseSecondsRemaining / COLLAPSE_COUNTDOWN_SECONDS));
             barColor = BossBar.Color.RED;
         } else {
-            title = Component.text("💀 FORTALEZA DOOM ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
+            title = Component.text("💀 FORTALEZA DOOM (10 SALÕES) ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
                     .append(Component.text("| Entrada: ", NamedTextColor.GRAY))
                     .append(Component.text("X: " + entranceLocation.getBlockX()
                             + " Y: " + entranceLocation.getBlockY()
                             + " Z: " + entranceLocation.getBlockZ(), NamedTextColor.WHITE, TextDecoration.BOLD))
-                    .append(Component.text(" | Baú Final: ", NamedTextColor.GRAY))
+                    .append(Component.text(" | Baú: ", NamedTextColor.GRAY))
                     .append(Component.text("+" + DOOM_REWARD_POINTS + " pts", NamedTextColor.GOLD, TextDecoration.BOLD));
             progress = 1.0f;
             barColor = BossBar.Color.PURPLE;

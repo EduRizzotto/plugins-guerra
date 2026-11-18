@@ -22,6 +22,7 @@ import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
@@ -251,6 +252,13 @@ public class DoomListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         if (doomManager.isActive()) {
             doomManager.updateEventCompasses();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSpawnerSpawn(SpawnerSpawnEvent event) {
+        if (event.getSpawner() != null && doomManager.isProtectedLocation(event.getSpawner().getLocation())) {
+            doomManager.registerDungeonMob(event.getEntity());
         }
     }
 }
