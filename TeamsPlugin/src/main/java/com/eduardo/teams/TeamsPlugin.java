@@ -9,6 +9,9 @@ import com.eduardo.teams.board.WallBoardManager;
 import com.eduardo.teams.command.TeamCommand;
 import com.eduardo.teams.compass.EventCompassListener;
 import com.eduardo.teams.compass.EventCompassManager;
+import com.eduardo.teams.dimension.DimensionLockCommand;
+import com.eduardo.teams.dimension.DimensionLockListener;
+import com.eduardo.teams.dimension.DimensionLockManager;
 import com.eduardo.teams.doom.DoomCommand;
 import com.eduardo.teams.doom.DoomListener;
 import com.eduardo.teams.doom.DoomManager;
@@ -55,6 +58,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private EventCompassManager compassManager;
     private KothManager kothManager;
     private DoomManager doomManager;
+    private DimensionLockManager dimensionLockManager;
 
     @Override
     public void onEnable() {
@@ -94,6 +98,10 @@ public final class TeamsPlugin extends JavaPlugin {
         this.doomManager = new DoomManager(this, this.teamManager);
         this.doomManager.setCompassManager(this.compassManager);
         DoomCommand doomCommand = new DoomCommand(this.doomManager);
+
+        this.dimensionLockManager = new DimensionLockManager(this);
+        DimensionLockCommand openCmdExecutor = new DimensionLockCommand(this.dimensionLockManager, true);
+        DimensionLockCommand closeCmdExecutor = new DimensionLockCommand(this.dimensionLockManager, false);
 
         PluginCommand cmd = getCommand("team");
         if (cmd != null) {
@@ -162,6 +170,18 @@ public final class TeamsPlugin extends JavaPlugin {
             doomCmd.setTabCompleter(doomCommand);
         }
 
+        PluginCommand openCmd = getCommand("open");
+        if (openCmd != null) {
+            openCmd.setExecutor(openCmdExecutor);
+            openCmd.setTabCompleter(openCmdExecutor);
+        }
+
+        PluginCommand closeCmd = getCommand("close");
+        if (closeCmd != null) {
+            closeCmd.setExecutor(closeCmdExecutor);
+            closeCmd.setTabCompleter(closeCmdExecutor);
+        }
+
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);
         hornListener.setQuestManager(this.questManager);
 
@@ -180,6 +200,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new RelicListener(this, this.relicManager), this);
         pm.registerEvents(new KothListener(this.kothManager), this);
         pm.registerEvents(new DoomListener(this.doomManager, this.teamManager), this);
+        pm.registerEvents(new DimensionLockListener(this.dimensionLockManager), this);
         pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);

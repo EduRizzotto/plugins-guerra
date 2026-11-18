@@ -39,7 +39,13 @@ commands:
   doom:
     description: Gera ou controla a gigantesca Fortaleza DOOM entre 5000 e 6000 blocos do spawn (apenas OP/admin).
     aliases: [fortalezadoom, dungeondoom]
-    usage: /doom [aqui|tp|parar]
+    usage: /doom [aqui|tp|abrir|parar]
+  open:
+    description: Libera o acesso ao Nether ou ao The End (apenas OP/admin).
+    usage: /open <nether|end>
+  close:
+    description: Bloqueia o acesso ao Nether ou ao The End (apenas OP/admin).
+    usage: /close <nether|end>
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
