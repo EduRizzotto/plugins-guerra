@@ -4,11 +4,17 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.Player;
 
 /**
- * Utilitario para envio de waypoints compativeis com Xaero's Minimap / World Map no chat.
+ * Utilitario para envio de waypoints e modo Fair-Play compativeis com Xaero's Minimap / World Map.
  */
 public final class XaeroWaypointUtil {
+
+    // Codigos de chat invisiveis que ativam o Fair-Play Mode no Xaero's Minimap
+    // (bloqueia radar de jogadores/entidades e Cave Mode, mantendo minimapa de superficie e waypoints)
+    private static final String XAERO_FAIR_PLAY_CODE = "§f§a§i§r§x§a§e§r§o";
+    private static final String XAERO_NETHER_FAIR_PLAY_CODE = "§f§a§i§r§x§a§e§r§o§x§a§e§r§o§w§m§n§e§t§h§e§r§i§s§f§a§i§r";
 
     // Indices de cores do Xaero's Minimap
     public static final int COLOR_DARK_RED = 4;
@@ -19,6 +25,19 @@ public final class XaeroWaypointUtil {
     public static final int COLOR_YELLOW = 14;
 
     private XaeroWaypointUtil() {
+    }
+
+    /**
+     * Ativa o modo Fair-Play no cliente Xaero's Minimap do jogador,
+     * ocultando jogadores/mobs do radar e desativando o Cave Mode.
+     */
+    @SuppressWarnings("deprecation")
+    public static void sendFairPlayMode(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        player.sendMessage(XAERO_FAIR_PLAY_CODE);
+        player.sendMessage(XAERO_NETHER_FAIR_PLAY_CODE);
     }
 
     /**

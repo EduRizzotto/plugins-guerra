@@ -29,6 +29,7 @@ import com.eduardo.teams.quest.QuestManager;
 import com.eduardo.teams.relic.RelicCommand;
 import com.eduardo.teams.relic.RelicListener;
 import com.eduardo.teams.relic.RelicManager;
+import com.eduardo.teams.util.XaeroWaypointUtil;
 import com.eduardo.teams.voice.TeamVoicechatIntegration;
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
 import net.kyori.adventure.text.Component;
@@ -178,6 +179,7 @@ public final class TeamsPlugin extends JavaPlugin {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             this.teamManager.updatePlayerDisplay(player);
+            XaeroWaypointUtil.sendFairPlayMode(player);
         }
 
         Bukkit.getScheduler().runTaskLater(this, () -> {
