@@ -15,6 +15,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -90,6 +91,8 @@ public class DoomManager {
     public static final int MIN_SPAWN_RADIUS = 5000;
     public static final int MAX_SPAWN_RADIUS = 6000;
     public static final int DOOM_REWARD_POINTS = 200;
+    public static final int GATE_UNLOCK_SECONDS = 3 * 60; // 3 minutos (180s) apos um jogador se aproximar
+    public static final double GATE_TRIGGER_RADIUS = 25.0; // Raio de aproximacao da porta da frente
     public static final int COLLAPSE_COUNTDOWN_SECONDS = 60;
 
     // Dimensoes locais relativas a (originX, baseY, originZ)
@@ -108,6 +111,9 @@ public class DoomManager {
 
     private boolean generating = false;
     private boolean active = false;
+    private boolean gateOpened = false;
+    private boolean gateCountdownStarted = false;
+    private int gateSecondsRemaining = GATE_UNLOCK_SECONDS;
     private boolean artifactClaimed = false;
     private int collapseSecondsRemaining = 0;
 
@@ -536,14 +542,14 @@ public class DoomManager {
                     }
                 } else if (isOuterWallX || isFrontWall || isBackWall) {
                     // Entrada Unica da Fortaleza DOOM: dz = 0..1, dx = -2..+2, dy = 1..5
+                    // Inicia FECHADA (Grades de Ferro por fora em dz=0 e Obsidiana Chorona por dentro em dz=1)
                     if (isFrontWall && Math.abs(dx) <= 2 && dy >= 1 && dy <= 5) {
                         if (Math.abs(dx) == 2 && dy == 5) {
                             setDungeonBlock(dx, dy, dz, Material.CRYING_OBSIDIAN);
-                        } else if (dz == 1 && dy == 1) {
-                            // Fileira de teia de aranha na porta de entrada/saida
-                            setDungeonBlock(dx, dy, dz, Material.COBWEB);
+                        } else if (dz == 0) {
+                            setDungeonBlock(dx, dy, dz, Material.IRON_BARS);
                         } else {
-                            setDungeonBlock(dx, dy, dz, Material.AIR);
+                            setDungeonBlock(dx, dy, dz, Material.CRYING_OBSIDIAN);
                         }
                         continue;
                     }
@@ -1291,6 +1297,9 @@ public class DoomManager {
         // 4. Ativa estado oficial do evento, Hologramas, BossBar, Bussolas e Waypoint do Xaero
         this.generating = false;
         this.active = true;
+        this.gateOpened = false;
+        this.gateCountdownStarted = false;
+        this.gateSecondsRemaining = GATE_UNLOCK_SECONDS;
         this.artifactClaimed = false;
         this.carrierId = null;
         this.droppedArtifactEntityId = null;
@@ -1322,8 +1331,10 @@ public class DoomManager {
                 .append(Component.text(" (Overworld)", NamedTextColor.DARK_GRAY)));
         Bukkit.broadcast(Component.text("  Desafios: ", NamedTextColor.GRAY)
                 .append(Component.text("10 Salões • Parkours • Labirinto • Gelo • Forja • Hordas", NamedTextColor.GOLD)));
+        Bukkit.broadcast(Component.text("  Portão Principal: ", NamedTextColor.GRAY)
+                .append(Component.text("🔒 FECHADO (Abre 3 min após alguém se aproximar!)", NamedTextColor.YELLOW, TextDecoration.BOLD)));
         Bukkit.broadcast(Component.text("  Baú Final: ", NamedTextColor.GRAY)
-                .append(Component.text("🔥 Coração do Doom (+" + DOOM_REWARD_POINTS + " PONTOS)", NamedTextColor.GREEN, TextDecoration.BOLD)));
+                .append(Component.text("🔥 Coração do Doom (+" + DOOM_REWARD_POINTS + " PONTOS ao sair com ele)", NamedTextColor.GREEN, TextDecoration.BOLD)));
         Bukkit.broadcast(Component.text("==============================================", NamedTextColor.DARK_RED, TextDecoration.BOLD));
         Bukkit.broadcast(Component.empty());
 
@@ -1619,6 +1630,7 @@ public class DoomManager {
         }
 
         tickCounter++;
+        updateGateProximityAndCountdown();
         verifyCarrierAndDroppedArtifactState();
         spawnOrUpdateHolograms();
         updateBossBar();
@@ -1650,6 +1662,134 @@ public class DoomManager {
                 stopDoom(false);
             }
         }
+    }
+
+    public boolean isGateOpened() {
+        return gateOpened;
+    }
+
+    private void updateGateProximityAndCountdown() {
+        if (!active || gateOpened || dungeonWorld == null || entranceLocation == null) {
+            return;
+        }
+
+        if (!gateCountdownStarted) {
+            double radiusSq = GATE_TRIGGER_RADIUS * GATE_TRIGGER_RADIUS;
+            for (Player player : dungeonWorld.getPlayers()) {
+                if (player.isDead() || player.getGameMode() == GameMode.SPECTATOR) {
+                    continue;
+                }
+                if (player.getLocation().distanceSquared(entranceLocation) <= radiusSq) {
+                    triggerGateCountdown(player);
+                    break;
+                }
+            }
+            return;
+        }
+
+        gateSecondsRemaining--;
+        if (gateSecondsRemaining == 120 || gateSecondsRemaining == 60 || gateSecondsRemaining == 30
+                || gateSecondsRemaining == 10 || (gateSecondsRemaining <= 5 && gateSecondsRemaining > 0)) {
+            Bukkit.broadcast(Component.text("⏳ O Portão Principal da Fortaleza DOOM abrirá em ", NamedTextColor.GOLD)
+                    .append(Component.text(formatSeconds(gateSecondsRemaining), NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text("!", NamedTextColor.GOLD)));
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                online.playSound(online.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, SoundCategory.MASTER, 1.0f, 1.2f);
+            }
+        }
+
+        if (gateSecondsRemaining <= 0) {
+            openFrontGate();
+        }
+    }
+
+    private void triggerGateCountdown(Player triggerPlayer) {
+        this.gateCountdownStarted = true;
+        this.gateSecondsRemaining = GATE_UNLOCK_SECONDS;
+
+        Team team = teamManager.getPlayerTeam(triggerPlayer.getUniqueId());
+        Component tagComp = (team != null) ? team.getFormattedTag().append(Component.text(" ")) : Component.empty();
+
+        Bukkit.broadcast(Component.empty());
+        Bukkit.broadcast(Component.text("==============================================", NamedTextColor.GOLD, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("   🔒 CONTAGEM DO PORTÃO DOOM INICIADA! 🔒", NamedTextColor.YELLOW, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("  ", NamedTextColor.GRAY)
+                .append(tagComp)
+                .append(Component.text(triggerPlayer.getName(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text(" aproximou-se da Entrada Única!", NamedTextColor.GRAY)));
+        Bukkit.broadcast(Component.text("  ⏳ O Portão da Frente abrirá em ", NamedTextColor.GRAY)
+                .append(Component.text("3 MINUTOS (03:00)", NamedTextColor.RED, TextDecoration.BOLD))
+                .append(Component.text("!", NamedTextColor.GRAY)));
+        Bukkit.broadcast(Component.text("==============================================", NamedTextColor.GOLD, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.empty());
+
+        Title countdownTitle = Title.title(
+                Component.text("🔒 PORTÃO DOOM: 03:00", NamedTextColor.GOLD, TextDecoration.BOLD),
+                tagComp.append(Component.text(triggerPlayer.getName() + " ativou a abertura da Fortaleza!", NamedTextColor.YELLOW)),
+                Title.Times.times(Duration.ofMillis(300), Duration.ofSeconds(3), Duration.ofMillis(600))
+        );
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.showTitle(countdownTitle);
+            online.playSound(online.getLocation(), Sound.EVENT_RAID_HORN, SoundCategory.MASTER, 1.0f, 0.9f);
+        }
+    }
+
+    public void openFrontGate() {
+        if (!active || gateOpened || dungeonWorld == null) {
+            return;
+        }
+        this.gateOpened = true;
+        this.gateCountdownStarted = false;
+        this.gateSecondsRemaining = 0;
+
+        // Abre o Portao Principal (dz = 0..1, dx = -2..+2, dy = 1..5) mantendo a fileira de teias em dz=1, dy=1
+        for (int dz = 0; dz <= 1; dz++) {
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dy = 1; dy <= 5; dy++) {
+                    if (Math.abs(dx) == 2 && dy == 5) {
+                        setDungeonBlock(dx, dy, dz, Material.CRYING_OBSIDIAN);
+                    } else if (dz == 1 && dy == 1) {
+                        setDungeonBlock(dx, dy, dz, Material.COBWEB);
+                    } else {
+                        setDungeonBlock(dx, dy, dz, Material.AIR);
+                    }
+                }
+            }
+        }
+
+        if (entranceLocation != null) {
+            Location gateCenter = new Location(dungeonWorld, originX + 0.5, baseY + 3.0, originZ + 0.5);
+            dungeonWorld.spawnParticle(Particle.EXPLOSION_EMITTER, gateCenter, 2, 0.5, 0.5, 0.5, 0.0);
+            dungeonWorld.spawnParticle(Particle.SOUL_FIRE_FLAME, gateCenter, 80, 1.8, 1.8, 0.6, 0.08);
+        }
+
+        spawnOrUpdateHolograms();
+        updateBossBar();
+
+        Bukkit.broadcast(Component.empty());
+        Bukkit.broadcast(Component.text("==============================================", NamedTextColor.GREEN, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("   🔓 O PORTÃO DA FORTALEZA DOOM ABRIU! 🔓", NamedTextColor.GOLD, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("  A Entrada Única está aberta! Invadam os 10 Salões,", NamedTextColor.YELLOW));
+        Bukkit.broadcast(Component.text("  peguem o Coração do Doom (+" + DOOM_REWARD_POINTS + " pts) e saiam vivos!", NamedTextColor.GREEN, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("==============================================", NamedTextColor.GREEN, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.empty());
+
+        Title openTitle = Title.title(
+                Component.text("🔓 PORTÃO DOOM ABERTO!", NamedTextColor.GREEN, TextDecoration.BOLD),
+                Component.text("Invadam a Fortaleza e tragam o Coração (+" + DOOM_REWARD_POINTS + " pts)!", NamedTextColor.YELLOW),
+                Title.Times.times(Duration.ofMillis(250), Duration.ofSeconds(3), Duration.ofMillis(600))
+        );
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.showTitle(openTitle);
+            online.playSound(online.getLocation(), Sound.ENTITY_WITHER_BREAK_BLOCK, SoundCategory.MASTER, 1.0f, 0.8f);
+            online.playSound(online.getLocation(), Sound.BLOCK_END_PORTAL_SPAWN, SoundCategory.MASTER, 0.8f, 1.0f);
+        }
+    }
+
+    private String formatSeconds(int totalSeconds) {
+        int mins = Math.max(0, totalSeconds) / 60;
+        int secs = Math.max(0, totalSeconds) % 60;
+        return String.format("%02d:%02d", mins, secs);
     }
 
     private void verifyCarrierAndDroppedArtifactState() {
@@ -1789,6 +1929,9 @@ public class DoomManager {
 
         this.active = false;
         this.generating = false;
+        this.gateOpened = false;
+        this.gateCountdownStarted = false;
+        this.gateSecondsRemaining = GATE_UNLOCK_SECONDS;
         this.artifactClaimed = false;
         this.carrierId = null;
         this.droppedArtifactEntityId = null;
@@ -1941,9 +2084,19 @@ public class DoomManager {
         }
         if (entranceLocation != null) {
             Location holoLoc = new Location(dungeonWorld, originX + 0.5, baseY + 6.8, originZ - 0.5);
+            Component statusLine;
+            if (!gateOpened) {
+                if (gateCountdownStarted) {
+                    statusLine = Component.text("🔒 Portão Abrindo em: " + formatSeconds(gateSecondsRemaining), NamedTextColor.RED, TextDecoration.BOLD);
+                } else {
+                    statusLine = Component.text("🔒 Portão Fechado — Aproxime-se para iniciar (3 min)", NamedTextColor.YELLOW, TextDecoration.BOLD);
+                }
+            } else {
+                statusLine = Component.text("🔓 Portão Aberto — Pegue o Coração (+" + DOOM_REWARD_POINTS + " pts) e Saia!", NamedTextColor.GREEN, TextDecoration.BOLD);
+            }
             Component text = Component.text("💀 FORTALEZA DOOM 💀\n", NamedTextColor.DARK_RED, TextDecoration.BOLD)
                     .append(Component.text("Entrada Única — 10 Salões de Desafio\n", NamedTextColor.GOLD))
-                    .append(Component.text("Baú Final: +" + DOOM_REWARD_POINTS + " Pontos de Equipe", NamedTextColor.GREEN, TextDecoration.BOLD));
+                    .append(statusLine);
             entranceHologramId = updateSingleHologram(entranceHologramId, holoLoc, text);
         }
         if (chestLocation != null) {
@@ -2036,6 +2189,23 @@ public class DoomManager {
                     .append(Component.text(distExit + "m", NamedTextColor.YELLOW, TextDecoration.BOLD));
             progress = Math.max(0.05f, Math.min(1.0f, (float) distExit / 245.0f));
             barColor = BossBar.Color.YELLOW;
+        } else if (!gateOpened && gateCountdownStarted) {
+            title = Component.text("🔒 PORTÃO DOOM ABRINDO EM " + formatSeconds(gateSecondsRemaining) + " ", NamedTextColor.GOLD, TextDecoration.BOLD)
+                    .append(Component.text("| Entrada: ", NamedTextColor.GRAY))
+                    .append(Component.text("X: " + entranceLocation.getBlockX()
+                            + " Y: " + entranceLocation.getBlockY()
+                            + " Z: " + entranceLocation.getBlockZ(), NamedTextColor.WHITE, TextDecoration.BOLD));
+            progress = Math.max(0.0f, Math.min(1.0f, (float) gateSecondsRemaining / GATE_UNLOCK_SECONDS));
+            barColor = BossBar.Color.YELLOW;
+        } else if (!gateOpened) {
+            title = Component.text("🔒 FORTALEZA DOOM (PORTÃO FECHADO) ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
+                    .append(Component.text("| Entrada: ", NamedTextColor.GRAY))
+                    .append(Component.text("X: " + entranceLocation.getBlockX()
+                            + " Y: " + entranceLocation.getBlockY()
+                            + " Z: " + entranceLocation.getBlockZ(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                    .append(Component.text(" | Aproxime-se!", NamedTextColor.YELLOW, TextDecoration.BOLD));
+            progress = 1.0f;
+            barColor = BossBar.Color.PURPLE;
         } else {
             title = Component.text("💀 FORTALEZA DOOM (10 SALÕES) ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
                     .append(Component.text("| Entrada: ", NamedTextColor.GRAY))

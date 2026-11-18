@@ -83,6 +83,18 @@ public class DoomCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage(Component.text("Teleportado para a Entrada Única da Fortaleza DOOM!", NamedTextColor.GREEN));
                 }
             }
+            case "abrir", "open", "destrancar" -> {
+                if (!doomManager.isActive()) {
+                    sender.sendMessage(Component.text("Não há nenhuma Fortaleza DOOM ativa no momento.", NamedTextColor.RED));
+                    return true;
+                }
+                if (doomManager.isGateOpened()) {
+                    sender.sendMessage(Component.text("O Portão Principal da Fortaleza DOOM já está aberto!", NamedTextColor.YELLOW));
+                    return true;
+                }
+                doomManager.openFrontGate();
+                sender.sendMessage(Component.text("Portão Principal da Fortaleza DOOM aberto imediatamente!", NamedTextColor.GREEN));
+            }
             case "parar", "stop", "limpar", "cancelar" -> {
                 if (!doomManager.isActive() && !doomManager.isGenerating()) {
                     sender.sendMessage(Component.text("Não há nenhuma Fortaleza DOOM ativa no momento.", NamedTextColor.YELLOW));
@@ -112,7 +124,7 @@ public class DoomCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
-            return Stream.of("aqui", "tp", "parar")
+            return Stream.of("aqui", "tp", "abrir", "parar")
                     .filter(opt -> opt.startsWith(prefix))
                     .toList();
         }
