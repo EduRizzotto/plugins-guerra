@@ -38,6 +38,7 @@ import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
@@ -110,6 +111,9 @@ public class DoomManager {
     private boolean artifactClaimed = false;
     private int collapseSecondsRemaining = 0;
 
+    private UUID carrierId;
+    private UUID droppedArtifactEntityId;
+
     private World dungeonWorld;
     private int originX;
     private int baseY;
@@ -169,6 +173,31 @@ public class DoomManager {
         return artifactClaimed;
     }
 
+    public UUID getCarrierId() {
+        return carrierId;
+    }
+
+    public boolean isCarrier(Player player) {
+        return player != null && carrierId != null && carrierId.equals(player.getUniqueId());
+    }
+
+    /**
+     * Verifica se a localizacao ainda esta dentro do casco fechado da Fortaleza (dz >= 0).
+     * Quando o portador cruza a Entrada Unica para fora (dz < 0 na praca externa ou fora das paredes),
+     * ele escapou da dungeon com sucesso!
+     */
+    public boolean isInsideSealedFortress(Location loc) {
+        if ((!active && !generating) || loc == null || dungeonWorld == null || !dungeonWorld.equals(loc.getWorld())) {
+            return false;
+        }
+        int x = loc.getBlockX();
+        int y = loc.getBlockY();
+        int z = loc.getBlockZ();
+        return x >= (originX - HALF_WIDTH) && x <= (originX + HALF_WIDTH)
+                && y >= (baseY + MIN_DY) && y <= (baseY + MAX_DY)
+                && z >= originZ && z <= (originZ + MAX_DZ);
+    }
+
     public Location getEntranceLocation() {
         return entranceLocation != null ? entranceLocation.clone() : null;
     }
@@ -199,7 +228,9 @@ public class DoomManager {
                     Component.text("da colossal Fortaleza DOOM.", NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false),
                     Component.empty(),
-                    Component.text("⚡ Clique para reivindicar imediatamente", NamedTextColor.YELLOW)
+                    Component.text("⚡ Pegue este artefato e SAIA DA DUNGEON", NamedTextColor.YELLOW)
+                            .decoration(TextDecoration.ITALIC, false),
+                    Component.text("   pela entrada única para conquistar", NamedTextColor.YELLOW)
                             .decoration(TextDecoration.ITALIC, false),
                     Component.text("   +200 PONTOS permanentes para sua equipe!", NamedTextColor.GOLD, TextDecoration.BOLD)
                             .decoration(TextDecoration.ITALIC, false)
@@ -508,6 +539,9 @@ public class DoomManager {
                     if (isFrontWall && Math.abs(dx) <= 2 && dy >= 1 && dy <= 5) {
                         if (Math.abs(dx) == 2 && dy == 5) {
                             setDungeonBlock(dx, dy, dz, Material.CRYING_OBSIDIAN);
+                        } else if (dz == 1 && dy == 1) {
+                            // Fileira de teia de aranha na porta de entrada/saida
+                            setDungeonBlock(dx, dy, dz, Material.COBWEB);
                         } else {
                             setDungeonBlock(dx, dy, dz, Material.AIR);
                         }
@@ -754,7 +788,12 @@ public class DoomManager {
                 if (elevatedFloor && dy <= 4) {
                     setDungeonBlock(dx, dy, dz, Material.POLISHED_BLACKSTONE_BRICKS);
                 } else if (inDoorX && dy >= doorMinY && dy <= doorMaxY) {
-                    setDungeonBlock(dx, dy, dz, Material.AIR);
+                    // Fileira de teia de aranha na base de cada porta entre as salas (exceto dz=25 pois dz=26 ja tem)
+                    if (dy == doorMinY && dz != 25) {
+                        setDungeonBlock(dx, dy, dz, Material.COBWEB);
+                    } else {
+                        setDungeonBlock(dx, dy, dz, Material.AIR);
+                    }
                 } else if ((isDoorFrameX && dy >= doorMinY && dy <= doorMaxY + 1) || (inDoorX && dy == doorMaxY + 1)) {
                     setDungeonBlock(dx, dy, dz, (dy % 2 == 0) ? Material.GILDED_BLACKSTONE : Material.CRYING_OBSIDIAN);
                 } else {
@@ -1253,6 +1292,8 @@ public class DoomManager {
         this.generating = false;
         this.active = true;
         this.artifactClaimed = false;
+        this.carrierId = null;
+        this.droppedArtifactEntityId = null;
         this.collapseSecondsRemaining = 0;
 
         spawnOrUpdateHolograms();
@@ -1348,15 +1389,167 @@ public class DoomManager {
         spawnedMobIds.add(mob.getUniqueId());
     }
 
-    public void claimArtifact(Player player, Team team) {
+    public boolean pickupArtifactFromChest(Player player, Team team) {
+        if (!active || artifactClaimed || player == null || team == null) {
+            return false;
+        }
+        if (player.getInventory().firstEmpty() == -1) {
+            player.sendMessage(Component.text("Libere pelo menos 1 espaço no inventário para pegar o Coração do Doom!", NamedTextColor.RED));
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            return false;
+        }
+
+        removeAllDoomArtifactsFromPlayer(player);
+        player.getInventory().addItem(createDoomArtifactItem());
+        this.carrierId = player.getUniqueId();
+        this.droppedArtifactEntityId = null;
+
+        applyCarrierGlowing(player);
+        spawnOrUpdateHolograms();
+        updateBossBar();
+        updateEventCompasses();
+
+        Bukkit.broadcast(Component.empty());
+        Bukkit.broadcast(Component.text("==============================================", NamedTextColor.RED, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("   🔥 O CORAÇÃO DO DOOM FOI ROUBADO DO BAÚ! 🔥", NamedTextColor.GOLD, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("  Portador: ", NamedTextColor.GRAY)
+                .append(team.getFormattedTag())
+                .append(Component.text(" " + player.getName(), NamedTextColor.WHITE, TextDecoration.BOLD)));
+        Bukkit.broadcast(Component.text("  Objetivo: ", NamedTextColor.GRAY)
+                .append(Component.text("SAIR PELA ENTRADA DA FORTALEZA DOOM", NamedTextColor.YELLOW, TextDecoration.BOLD)));
+        Bukkit.broadcast(Component.text("  ⚔ Matem o portador antes que ele saia para roubar o Coração!", NamedTextColor.RED));
+        Bukkit.broadcast(Component.text("==============================================", NamedTextColor.RED, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.empty());
+
+        Title pickupTitle = Title.title(
+                Component.text("🔥 CORAÇÃO CAPTURADO! 🔥", NamedTextColor.RED, TextDecoration.BOLD),
+                team.getFormattedTag()
+                        .append(Component.text(" " + player.getName() + " está fugindo para a saída!", NamedTextColor.YELLOW)),
+                Title.Times.times(Duration.ofMillis(250), Duration.ofSeconds(3), Duration.ofMillis(600))
+        );
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.showTitle(pickupTitle);
+            online.playSound(online.getLocation(), Sound.ENTITY_WITHER_AMBIENT, SoundCategory.MASTER, 1.0f, 0.8f);
+        }
+        return true;
+    }
+
+    public void pickupDroppedArtifact(Player player, Team team, Item itemEntity) {
+        if (!active || artifactClaimed || player == null || team == null) {
+            return;
+        }
+        if (itemEntity != null && itemEntity.isValid()) {
+            itemEntity.remove();
+        }
+        removeAllDoomArtifactsFromPlayer(player);
+        player.getInventory().addItem(createDoomArtifactItem());
+        this.carrierId = player.getUniqueId();
+        this.droppedArtifactEntityId = null;
+
+        applyCarrierGlowing(player);
+        spawnOrUpdateHolograms();
+        updateBossBar();
+        updateEventCompasses();
+
+        Bukkit.broadcast(Component.text("🔥 ", NamedTextColor.RED)
+                .append(team.getFormattedTag())
+                .append(Component.text(" " + player.getName(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text(" pegou o Coração do Doom do chão e está correndo para a saída!", NamedTextColor.GOLD)));
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            online.playSound(online.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, SoundCategory.MASTER, 1.0f, 1.0f);
+        }
+    }
+
+    public void handleCarrierLostArtifact(Player formerCarrier, Player killer, Location dropLocation) {
+        if (!active || artifactClaimed) {
+            return;
+        }
+        if (formerCarrier != null) {
+            removeAllDoomArtifactsFromPlayer(formerCarrier);
+        }
+
+        // Se foi morto por outro jogador que pertence a uma equipe e tem espaco no inventario, transfere direto!
+        if (killer != null && !killer.equals(formerCarrier) && killer.isOnline() && !killer.isDead()) {
+            Team killerTeam = teamManager.getPlayerTeam(killer.getUniqueId());
+            if (killerTeam != null && killer.getInventory().firstEmpty() != -1) {
+                removeAllDoomArtifactsFromPlayer(killer);
+                killer.getInventory().addItem(createDoomArtifactItem());
+                this.carrierId = killer.getUniqueId();
+                this.droppedArtifactEntityId = null;
+
+                applyCarrierGlowing(killer);
+                spawnOrUpdateHolograms();
+                updateBossBar();
+                updateEventCompasses();
+
+                Bukkit.broadcast(Component.empty());
+                Bukkit.broadcast(Component.text("⚔ ROUBO NA FORTALEZA DOOM! ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
+                        .append(killerTeam.getFormattedTag())
+                        .append(Component.text(" " + killer.getName(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                        .append(Component.text(" eliminou o portador e ROUBOU o Coração do Doom!", NamedTextColor.GOLD, TextDecoration.BOLD)));
+                Bukkit.broadcast(Component.empty());
+
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    online.playSound(online.getLocation(), Sound.ENTITY_ENDER_DRAGON_HURT, SoundCategory.MASTER, 1.0f, 0.8f);
+                }
+                return;
+            }
+        }
+
+        this.carrierId = null;
+        Location safeDrop = (dropLocation != null && dropLocation.getWorld() != null) ? dropLocation.clone() : chestLocation;
+        if (safeDrop != null && safeDrop.getWorld() != null) {
+            Item dropped = safeDrop.getWorld().dropItem(safeDrop.clone().add(0, 0.5, 0), createDoomArtifactItem(), item -> {
+                item.setInvulnerable(true);
+                item.setUnlimitedLifetime(true);
+                item.setGlowing(true);
+                item.setPickupDelay(15);
+                item.customName(Component.text("🔥 CORAÇÃO DO DOOM (+200 PTS)", NamedTextColor.GOLD, TextDecoration.BOLD));
+                item.setCustomNameVisible(true);
+            });
+            this.droppedArtifactEntityId = dropped.getUniqueId();
+            Bukkit.broadcast(Component.text("⚠️ O Portador caiu! O ", NamedTextColor.RED)
+                    .append(Component.text("Coração do Doom", NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text(" está no chão em X: " + safeDrop.getBlockX()
+                            + ", Y: " + safeDrop.getBlockY()
+                            + ", Z: " + safeDrop.getBlockZ() + "!", NamedTextColor.YELLOW)));
+        }
+
+        spawnOrUpdateHolograms();
+        updateBossBar();
+        updateEventCompasses();
+    }
+
+    public void checkCarrierEscaped(Player player) {
+        if (!active || artifactClaimed || player == null || !isCarrier(player)) {
+            return;
+        }
+        if (player.isDead() || !player.isOnline()) {
+            return;
+        }
+        // Quando o portador sai do casco fechado da Fortaleza (cruza a Entrada Unica para dz < 0)
+        if (!isInsideSealedFortress(player.getLocation())) {
+            Team team = teamManager.getPlayerTeam(player.getUniqueId());
+            if (team == null) {
+                handleCarrierLostArtifact(player, null, entranceLocation);
+                return;
+            }
+            completeEscapeVictory(player, team);
+        }
+    }
+
+    public void completeEscapeVictory(Player player, Team team) {
         if (!active || artifactClaimed || player == null || team == null) {
             return;
         }
 
         this.artifactClaimed = true;
+        this.carrierId = null;
+        this.droppedArtifactEntityId = null;
         this.collapseSecondsRemaining = COLLAPSE_COUNTDOWN_SECONDS;
 
-        teamManager.awardTeamPoints(team, DOOM_REWARD_POINTS, "Conquistou o Coração da Fortaleza DOOM (" + player.getName() + ")");
+        removeAllDoomArtifactsFromPlayer(player);
+        teamManager.awardTeamPoints(team, DOOM_REWARD_POINTS, "Escapou da Fortaleza DOOM com o Coração (" + player.getName() + ")");
         int newTotal = team.getPoints();
         ItemStack trophy = createDoomTrophyItem(team, player);
         Map<Integer, ItemStack> leftover = player.getInventory().addItem(trophy);
@@ -1370,10 +1563,11 @@ public class DoomManager {
 
         Bukkit.broadcast(Component.empty());
         Bukkit.broadcast(Component.text("==============================================", NamedTextColor.GOLD, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text("   🏆 FORTALEZA DOOM CONQUISTADA! 🏆", NamedTextColor.GREEN, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("   🏆 FUGA COMPLETA! FORTALEZA DOOM VENCIDA! 🏆", NamedTextColor.GREEN, TextDecoration.BOLD));
         Bukkit.broadcast(Component.text("  Conquistador: ", NamedTextColor.GRAY)
                 .append(team.getFormattedTag())
-                .append(Component.text(" " + player.getName(), NamedTextColor.WHITE, TextDecoration.BOLD)));
+                .append(Component.text(" " + player.getName(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                .append(Component.text(" saiu vivo da Fortaleza com o Coração!", NamedTextColor.YELLOW)));
         Bukkit.broadcast(Component.text("  Recompensa: ", NamedTextColor.GRAY)
                 .append(Component.text("+" + DOOM_REWARD_POINTS + " PONTOS", NamedTextColor.GREEN, TextDecoration.BOLD))
                 .append(Component.text(" para a equipe ", NamedTextColor.GRAY))
@@ -1386,7 +1580,7 @@ public class DoomManager {
         Title winTitle = Title.title(
                 Component.text("🏆 DOOM CONQUISTADA! 🏆", NamedTextColor.GOLD, TextDecoration.BOLD),
                 team.getFormattedTag()
-                        .append(Component.text(" " + player.getName() + " pegou o Coração (+" + DOOM_REWARD_POINTS + " pts)!", NamedTextColor.GREEN)),
+                        .append(Component.text(" " + player.getName() + " escapou com o Coração (+" + DOOM_REWARD_POINTS + " pts)!", NamedTextColor.GREEN)),
                 Title.Times.times(Duration.ofMillis(300), Duration.ofSeconds(4), Duration.ofMillis(800))
         );
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -1396,12 +1590,36 @@ public class DoomManager {
         }
     }
 
+    public void removeAllDoomArtifactsFromPlayer(Player player) {
+        if (player == null) {
+            return;
+        }
+        Inventory inv = player.getInventory();
+        for (int i = 0; i < inv.getSize(); i++) {
+            if (isDoomArtifact(inv.getItem(i))) {
+                inv.setItem(i, null);
+            }
+        }
+        if (isDoomArtifact(player.getItemOnCursor())) {
+            player.setItemOnCursor(null);
+        }
+    }
+
+    private void applyCarrierGlowing(Player carrier) {
+        if (carrier == null || !carrier.isOnline()) {
+            return;
+        }
+        teamManager.updatePlayerDisplay(carrier);
+        carrier.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 60, 0, false, false, true));
+    }
+
     private void tick() {
         if (!active || dungeonWorld == null) {
             return;
         }
 
         tickCounter++;
+        verifyCarrierAndDroppedArtifactState();
         spawnOrUpdateHolograms();
         updateBossBar();
         updateEventCompasses();
@@ -1430,6 +1648,31 @@ public class DoomManager {
             }
             if (collapseSecondsRemaining <= 0) {
                 stopDoom(false);
+            }
+        }
+    }
+
+    private void verifyCarrierAndDroppedArtifactState() {
+        if (!active || artifactClaimed) {
+            return;
+        }
+        if (carrierId != null) {
+            Player carrier = Bukkit.getPlayer(carrierId);
+            if (carrier == null || !carrier.isOnline() || carrier.isDead()) {
+                handleCarrierLostArtifact(carrier, null, carrier != null ? carrier.getLocation() : chestLocation);
+                return;
+            }
+            applyCarrierGlowing(carrier);
+            checkCarrierEscaped(carrier);
+        } else if (droppedArtifactEntityId != null) {
+            Entity dropped = Bukkit.getEntity(droppedArtifactEntityId);
+            if (dropped == null || !dropped.isValid() || dropped.isDead()) {
+                // Caso a entidade do item caido suma por algum motivo externo, devolve ao Bau Final
+                droppedArtifactEntityId = null;
+                if (chestLocation != null && chestLocation.getBlock().getState() instanceof Chest chest) {
+                    chest.getBlockInventory().setItem(13, createDoomArtifactItem());
+                    Bukkit.broadcast(Component.text("🔥 O Coração do Doom retornou ao Baú Final na 10ª Sala!", NamedTextColor.GOLD, TextDecoration.BOLD));
+                }
             }
         }
     }
@@ -1531,9 +1774,24 @@ public class DoomManager {
         // Remove 100% dos monstros da dungeon (incluindo os gerados pelos spawners vanilla)
         removeDungeonMobs();
 
+        if (carrierId != null) {
+            Player carrier = Bukkit.getPlayer(carrierId);
+            if (carrier != null) {
+                removeAllDoomArtifactsFromPlayer(carrier);
+            }
+        }
+        if (droppedArtifactEntityId != null) {
+            Entity dropped = Bukkit.getEntity(droppedArtifactEntityId);
+            if (dropped != null) {
+                dropped.remove();
+            }
+        }
+
         this.active = false;
         this.generating = false;
         this.artifactClaimed = false;
+        this.carrierId = null;
+        this.droppedArtifactEntityId = null;
         this.collapseSecondsRemaining = 0;
 
         if (compassManager != null) {
@@ -1690,11 +1948,22 @@ public class DoomManager {
         }
         if (chestLocation != null) {
             Location holoLoc = chestLocation.clone().add(0.5, 1.5, 0.5);
-            Component text = artifactClaimed
-                    ? Component.text("💀 BAÚ DO DOOM CONQUISTADO 💀\n", NamedTextColor.RED, TextDecoration.BOLD)
-                    .append(Component.text("Colapso em " + collapseSecondsRemaining + "s!", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                    : Component.text("🔥 BAÚ FINAL DO DOOM 🔥\n", NamedTextColor.GOLD, TextDecoration.BOLD)
-                    .append(Component.text("Abra e pegue o Coração (+" + DOOM_REWARD_POINTS + " PONTOS)", NamedTextColor.GREEN, TextDecoration.BOLD));
+            Component text;
+            if (artifactClaimed) {
+                text = Component.text("💀 BAÚ DO DOOM CONQUISTADO 💀\n", NamedTextColor.RED, TextDecoration.BOLD)
+                        .append(Component.text("Colapso em " + collapseSecondsRemaining + "s!", NamedTextColor.YELLOW, TextDecoration.BOLD));
+            } else if (carrierId != null) {
+                Player carrier = Bukkit.getPlayer(carrierId);
+                String carrierName = carrier != null ? carrier.getName() : "Portador";
+                text = Component.text("⚠️ CORAÇÃO EM FUGA! ⚠️\n", NamedTextColor.RED, TextDecoration.BOLD)
+                        .append(Component.text(carrierName + " está tentando sair da Fortaleza!", NamedTextColor.YELLOW, TextDecoration.BOLD));
+            } else if (droppedArtifactEntityId != null) {
+                text = Component.text("⚠️ CORAÇÃO CAÍDO NO CHÃO! ⚠️\n", NamedTextColor.GOLD, TextDecoration.BOLD)
+                        .append(Component.text("Encontre-o na Fortaleza e saia pela entrada!", NamedTextColor.YELLOW));
+            } else {
+                text = Component.text("🔥 BAÚ FINAL DO DOOM 🔥\n", NamedTextColor.GOLD, TextDecoration.BOLD)
+                        .append(Component.text("Pegue o Coração e SAIA da Fortaleza (+" + DOOM_REWARD_POINTS + " PTS)", NamedTextColor.GREEN, TextDecoration.BOLD));
+            }
             chestHologramId = updateSingleHologram(chestHologramId, holoLoc, text);
         }
     }
@@ -1751,6 +2020,22 @@ public class DoomManager {
             title = Component.text("⚠️ COLAPSO DA FORTALEZA DOOM EM " + collapseSecondsRemaining + "s!", NamedTextColor.RED, TextDecoration.BOLD);
             progress = Math.max(0.0f, Math.min(1.0f, (float) collapseSecondsRemaining / COLLAPSE_COUNTDOWN_SECONDS));
             barColor = BossBar.Color.RED;
+        } else if (carrierId != null) {
+            Player carrier = Bukkit.getPlayer(carrierId);
+            Team team = carrier != null ? teamManager.getPlayerTeam(carrier.getUniqueId()) : null;
+            int distExit = (carrier != null && entranceLocation != null && carrier.getWorld().equals(entranceLocation.getWorld()))
+                    ? (int) Math.round(carrier.getLocation().distance(entranceLocation))
+                    : 0;
+            Component carrierTag = (team != null) ? team.getFormattedTag().append(Component.text(" ")) : Component.empty();
+            String carrierName = (carrier != null) ? carrier.getName() : "Portador";
+
+            title = Component.text("🔥 PORTADOR DO DOOM: ", NamedTextColor.GOLD, TextDecoration.BOLD)
+                    .append(carrierTag)
+                    .append(Component.text(carrierName, NamedTextColor.WHITE, TextDecoration.BOLD))
+                    .append(Component.text(" | Saída a ", NamedTextColor.GRAY))
+                    .append(Component.text(distExit + "m", NamedTextColor.YELLOW, TextDecoration.BOLD));
+            progress = Math.max(0.05f, Math.min(1.0f, (float) distExit / 245.0f));
+            barColor = BossBar.Color.YELLOW;
         } else {
             title = Component.text("💀 FORTALEZA DOOM (10 SALÕES) ", NamedTextColor.DARK_RED, TextDecoration.BOLD)
                     .append(Component.text("| Entrada: ", NamedTextColor.GRAY))
@@ -1788,6 +2073,17 @@ public class DoomManager {
     public void updateEventCompasses() {
         if (compassManager == null || !active || entranceLocation == null) {
             return;
+        }
+        if (carrierId != null) {
+            Player carrier = Bukkit.getPlayer(carrierId);
+            if (carrier != null && carrier.isOnline()) {
+                Location target = carrier.getLocation();
+                String label = "Portador DOOM: " + carrier.getName() + " (X: " + target.getBlockX()
+                        + ", Y: " + target.getBlockY()
+                        + ", Z: " + target.getBlockZ() + ")";
+                compassManager.giveOrUpdateAllPlayers(CompassEventType.DOOM, target, label);
+                return;
+            }
         }
         String label = "Entrada da Fortaleza DOOM (X: " + entranceLocation.getBlockX()
                 + ", Y: " + entranceLocation.getBlockY()

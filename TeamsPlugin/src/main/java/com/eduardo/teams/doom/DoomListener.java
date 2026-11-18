@@ -4,6 +4,7 @@ import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -22,19 +23,25 @@ import org.bukkit.event.block.BlockSpreadEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 /**
  * Protege 100% dos blocos da Fortaleza DOOM contra quebra, colocacao, baldes, explosoes e perolas do fim,
- * alem de gerenciar a conquista do Coracao do Doom (+200 pontos) no Bau Final.
+ * alem de gerenciar a captura, roubo em PvP e fuga com o Coracao do Doom (+200 pontos).
  */
 public class DoomListener implements Listener {
 
@@ -162,7 +169,8 @@ public class DoomListener implements Listener {
         if (cause == PlayerTeleportEvent.TeleportCause.ENDER_PEARL
                 || cause == PlayerTeleportEvent.TeleportCause.CHORUS_FRUIT) {
             if (doomManager.isProtectedLocation(event.getFrom())
-                    || (event.getTo() != null && doomManager.isProtectedLocation(event.getTo()))) {
+                    || (event.getTo() != null && doomManager.isProtectedLocation(event.getTo()))
+                    || doomManager.isCarrier(event.getPlayer())) {
                 event.setCancelled(true);
                 event.getPlayer().sendMessage(Component.text(
                         "A magia sombria da Fortaleza DOOM bloqueia Pérolas do Fim e Frutas do Coro!",
@@ -173,39 +181,79 @@ public class DoomListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
-        ItemStack clicked = event.getCurrentItem();
-        if (!doomManager.isDoomArtifact(clicked)) {
-            return;
-        }
-
-        event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
-        if (doomManager.isArtifactClaimed()) {
-            event.setCurrentItem(null);
+        ItemStack current = event.getCurrentItem();
+        ItemStack cursor = event.getCursor();
+        ItemStack hotbar = (event.getHotbarButton() >= 0) ? player.getInventory().getItem(event.getHotbarButton()) : null;
+
+        boolean involvesArtifact = doomManager.isDoomArtifact(current)
+                || doomManager.isDoomArtifact(cursor)
+                || doomManager.isDoomArtifact(hotbar);
+        if (!involvesArtifact) {
             return;
         }
 
-        Team team = teamManager.getPlayerTeam(player.getUniqueId());
-        if (team == null) {
-            player.sendMessage(Component.text(
-                    "Você precisa estar em uma equipe (/team) para reivindicar o Coração do Doom (+200 pts)!",
-                    NamedTextColor.RED));
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+        Inventory clickedInv = event.getClickedInventory();
+        Inventory topInv = event.getView().getTopInventory();
+
+        // 1. Se o jogador esta clicando no Coracao do Doom dentro do Bau Final para pega-lo:
+        if (clickedInv != null && clickedInv.equals(topInv) && topInv.getType() == InventoryType.CHEST && doomManager.isDoomArtifact(current)) {
+            event.setCancelled(true);
+            if (doomManager.isArtifactClaimed()) {
+                event.setCurrentItem(null);
+                return;
+            }
+
+            Team team = teamManager.getPlayerTeam(player.getUniqueId());
+            if (team == null) {
+                player.sendMessage(Component.text(
+                        "Você precisa estar em uma equipe (/team) para pegar o Coração do Doom (+200 pts)!",
+                        NamedTextColor.RED));
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                return;
+            }
+
+            if (doomManager.pickupArtifactFromChest(player, team)) {
+                event.setCurrentItem(null);
+                player.closeInventory();
+            }
             return;
         }
 
-        event.setCurrentItem(null);
-        player.closeInventory();
-        doomManager.claimArtifact(player, team);
+        // 2. Impede que o portador guarde o Coracao do Doom em qualquer bau, ender chest, bigorna, etc.
+        if (topInv.getType() != InventoryType.CRAFTING && topInv.getType() != InventoryType.CREATIVE) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("Você não pode guardar o Coração do Doom em baús! Saia pela entrada da Fortaleza!", NamedTextColor.RED));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (doomManager.isDoomArtifact(event.getOldCursor())) {
+            Inventory topInv = event.getView().getTopInventory();
+            if (topInv.getType() != InventoryType.CRAFTING && topInv.getType() != InventoryType.CREATIVE) {
+                event.setCancelled(true);
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
         if (doomManager.isDoomArtifact(event.getItem())) {
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerDropArtifact(PlayerDropItemEvent event) {
+        if (doomManager.isDoomArtifact(event.getItemDrop().getItemStack())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(Component.text(
+                    "Você não pode largar o Coração do Doom! Saia vivo pela entrada da Fortaleza para vencer!",
+                    NamedTextColor.RED));
         }
     }
 
@@ -225,27 +273,43 @@ public class DoomListener implements Listener {
         if (team == null) {
             return;
         }
-        event.getItem().remove();
-        doomManager.claimArtifact(player, team);
+        doomManager.pickupDroppedArtifact(player, team, event.getItem());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void onArtifactRightClick(PlayerInteractEvent event) {
-        ItemStack item = event.getItem();
-        if (!doomManager.isDoomArtifact(item)) {
+    public void onCarrierDeath(PlayerDeathEvent event) {
+        Player dead = event.getEntity();
+        boolean hadArtifact = doomManager.isCarrier(dead)
+                || event.getDrops().stream().anyMatch(doomManager::isDoomArtifact);
+        if (!hadArtifact) {
             return;
         }
-        event.setCancelled(true);
+        event.getDrops().removeIf(doomManager::isDoomArtifact);
+        doomManager.handleCarrierLostArtifact(dead, dead.getKiller(), dead.getLocation());
+    }
+
+    @EventHandler
+    public void onCarrierQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        Team team = teamManager.getPlayerTeam(player.getUniqueId());
-        if (team == null) {
-            player.sendMessage(Component.text(
-                    "Você precisa estar em uma equipe (/team) para reivindicar o Coração do Doom (+200 pts)!",
-                    NamedTextColor.RED));
+        if (doomManager.isCarrier(player)) {
+            doomManager.handleCarrierLostArtifact(player, null, player.getLocation());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onCarrierMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        if (!doomManager.isCarrier(player)) {
             return;
         }
-        item.setAmount(0);
-        doomManager.claimArtifact(player, team);
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to == null) {
+            return;
+        }
+        if (from.getBlockX() != to.getBlockX() || from.getBlockY() != to.getBlockY() || from.getBlockZ() != to.getBlockZ()) {
+            doomManager.checkCarrierEscaped(player);
+        }
     }
 
     @EventHandler
