@@ -58,6 +58,10 @@ commands:
     description: Autoriza ou remove jogadores que podem criar times com /team create (apenas OP/admin).
     aliases: [lider, lideres]
     usage: /leader <add|remove|list> [nome]
+  kit:
+    description: Abre o painel de Kits Oficiais, resgata um kit liberado ou gerencia permissoes (/kit permission).
+    aliases: [kits]
+    usage: /kit [rango|sobrevivencia|minerador|alquimista|arqueiro|construtor|permission]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
