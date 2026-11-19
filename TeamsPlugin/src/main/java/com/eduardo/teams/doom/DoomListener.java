@@ -8,6 +8,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -20,6 +21,7 @@ import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockFadeEvent;
 import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -62,18 +64,73 @@ public class DoomListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        if (doomManager.isProtectedLocation(event.getBlock().getLocation())) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("Você não pode destruir blocos dentro da Fortaleza DOOM!", NamedTextColor.RED));
+        Location loc = event.getBlock().getLocation();
+        if (!doomManager.isProtectedLocation(loc)) {
+            return;
         }
+        if (doomManager.isPlayerPlacedBlock(loc)) {
+            doomManager.unregisterPlayerPlacedBlock(loc);
+            return;
+        }
+        event.setCancelled(true);
+        event.getPlayer().sendMessage(Component.text("Você não pode destruir blocos da estrutura da Fortaleza DOOM!", NamedTextColor.RED));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
-        if (doomManager.isProtectedLocation(event.getBlock().getLocation())) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("Você não pode colocar blocos dentro da Fortaleza DOOM!", NamedTextColor.RED));
+        if (event instanceof BlockMultiPlaceEvent multi) {
+            boolean touchesProtected = false;
+            for (BlockState state : multi.getReplacedBlockStates()) {
+                Location loc = state.getLocation();
+                if (doomManager.isProtectedLocation(loc)) {
+                    touchesProtected = true;
+                    if (!canOverwriteBlock(loc, state.getType())) {
+                        event.setCancelled(true);
+                        event.getPlayer().sendMessage(Component.text("Você não pode substituir blocos da estrutura da Fortaleza DOOM!", NamedTextColor.RED));
+                        return;
+                    }
+                }
+            }
+            if (touchesProtected) {
+                for (BlockState state : multi.getReplacedBlockStates()) {
+                    Location loc = state.getLocation();
+                    if (doomManager.isProtectedLocation(loc)) {
+                        doomManager.registerPlayerPlacedBlock(loc, state.getBlockData());
+                    }
+                }
+            }
+            return;
         }
+
+        Location loc = event.getBlock().getLocation();
+        if (!doomManager.isProtectedLocation(loc)) {
+            return;
+        }
+
+        BlockState replacedState = event.getBlockReplacedState();
+        if (!canOverwriteBlock(loc, replacedState.getType())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(Component.text("Você não pode substituir blocos da estrutura da Fortaleza DOOM!", NamedTextColor.RED));
+            return;
+        }
+
+        doomManager.registerPlayerPlacedBlock(loc, replacedState.getBlockData());
+    }
+
+    private boolean canOverwriteBlock(Location loc, Material replacedType) {
+        if (replacedType.isAir() || doomManager.isPlayerPlacedBlock(loc)) {
+            return true;
+        }
+        // Na borda externa fora do interior da dungeon, permite cobrir grama/neve natural
+        if (!doomManager.isInsideDungeonInterior(loc)) {
+            return replacedType == Material.SHORT_GRASS
+                    || replacedType == Material.TALL_GRASS
+                    || replacedType == Material.FERN
+                    || replacedType == Material.LARGE_FERN
+                    || replacedType == Material.SNOW
+                    || replacedType == Material.DEAD_BUSH;
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -96,12 +153,26 @@ public class DoomListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent event) {
-        event.blockList().removeIf(block -> doomManager.isProtectedLocation(block.getLocation()));
+        filterProtectedExplosionBlocks(event.blockList());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockExplode(BlockExplodeEvent event) {
-        event.blockList().removeIf(block -> doomManager.isProtectedLocation(block.getLocation()));
+        filterProtectedExplosionBlocks(event.blockList());
+    }
+
+    private void filterProtectedExplosionBlocks(java.util.List<Block> blocks) {
+        blocks.removeIf(block -> {
+            Location loc = block.getLocation();
+            if (!doomManager.isProtectedLocation(loc)) {
+                return false;
+            }
+            if (doomManager.isPlayerPlacedBlock(loc)) {
+                doomManager.unregisterPlayerPlacedBlock(loc);
+                return false;
+            }
+            return true;
+        });
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -113,8 +184,13 @@ public class DoomListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBurn(BlockBurnEvent event) {
-        if (doomManager.isProtectedLocation(event.getBlock().getLocation())) {
-            event.setCancelled(true);
+        Location loc = event.getBlock().getLocation();
+        if (doomManager.isProtectedLocation(loc)) {
+            if (doomManager.isPlayerPlacedBlock(loc)) {
+                doomManager.unregisterPlayerPlacedBlock(loc);
+            } else {
+                event.setCancelled(true);
+            }
         }
     }
 

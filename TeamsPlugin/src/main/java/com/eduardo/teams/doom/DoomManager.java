@@ -131,6 +131,7 @@ public class DoomManager {
     private UUID chestHologramId;
 
     private final Map<Location, BlockData> originalBlocks = new LinkedHashMap<>();
+    private final Set<Location> playerPlacedBlocks = new HashSet<>();
     private final List<SpawnerPoint> spawnerPoints = new ArrayList<>();
     private final Set<UUID> spawnedMobIds = new HashSet<>();
     private final Set<Long> ticketedChunks = new HashSet<>();
@@ -323,6 +324,36 @@ public class DoomManager {
         return x >= (originX - HALF_WIDTH) && x <= (originX + HALF_WIDTH)
                 && y >= (baseY + MIN_DY) && y <= (baseY + MAX_DY)
                 && z >= (originZ + MIN_DZ) && z <= (originZ + MAX_DZ);
+    }
+
+    private Location normalizeBlockLoc(Location loc) {
+        if (loc == null || loc.getWorld() == null) {
+            return null;
+        }
+        return new Location(loc.getWorld(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+    }
+
+    public boolean isPlayerPlacedBlock(Location loc) {
+        Location norm = normalizeBlockLoc(loc);
+        return norm != null && playerPlacedBlocks.contains(norm);
+    }
+
+    public void registerPlayerPlacedBlock(Location loc, BlockData previousData) {
+        Location norm = normalizeBlockLoc(loc);
+        if (norm == null) {
+            return;
+        }
+        if (!originalBlocks.containsKey(norm) && previousData != null) {
+            originalBlocks.put(norm, previousData.clone());
+        }
+        playerPlacedBlocks.add(norm);
+    }
+
+    public void unregisterPlayerPlacedBlock(Location loc) {
+        Location norm = normalizeBlockLoc(loc);
+        if (norm != null) {
+            playerPlacedBlocks.remove(norm);
+        }
     }
 
     /**
@@ -840,12 +871,7 @@ public class DoomManager {
                 if (elevatedFloor && dy <= 4) {
                     setDungeonBlock(dx, dy, dz, Material.POLISHED_BLACKSTONE_BRICKS);
                 } else if (inDoorX && dy >= doorMinY && dy <= doorMaxY) {
-                    // Fileira de teia de aranha na base de cada porta entre as salas (exceto dz=25 pois dz=26 ja tem)
-                    if (dy == doorMinY && dz != 25) {
-                        setDungeonBlock(dx, dy, dz, Material.COBWEB);
-                    } else {
-                        setDungeonBlock(dx, dy, dz, Material.AIR);
-                    }
+                    setDungeonBlock(dx, dy, dz, Material.AIR);
                 } else if ((isDoorFrameX && dy >= doorMinY && dy <= doorMaxY + 1) || (inDoorX && dy == doorMaxY + 1)) {
                     setDungeonBlock(dx, dy, dz, (dy % 2 == 0) ? Material.GILDED_BLACKSTONE : Material.CRYING_OBSIDIAN);
                 } else {
@@ -1781,14 +1807,12 @@ public class DoomManager {
         this.gateCountdownStarted = false;
         this.gateSecondsRemaining = 0;
 
-        // Abre o Portao Principal (dz = 0..1, dx = -2..+2, dy = 1..5) mantendo a fileira de teias em dz=1, dy=1
+        // Abre o Portao Principal (dz = 0..1, dx = -2..+2, dy = 1..5)
         for (int dz = 0; dz <= 1; dz++) {
             for (int dx = -2; dx <= 2; dx++) {
                 for (int dy = 1; dy <= 5; dy++) {
                     if (Math.abs(dx) == 2 && dy == 5) {
                         setDungeonBlock(dx, dy, dz, Material.CRYING_OBSIDIAN);
-                    } else if (dz == 1 && dy == 1) {
-                        setDungeonBlock(dx, dy, dz, Material.COBWEB);
                     } else {
                         setDungeonBlock(dx, dy, dz, Material.AIR);
                     }
@@ -1987,6 +2011,7 @@ public class DoomManager {
         }
 
         restoreOriginalBlocks();
+        this.playerPlacedBlocks.clear();
 
         for (Player p : evacuatedPlayers) {
             Location safe = p.getLocation();
