@@ -295,32 +295,6 @@ public class DoomManager {
         return stack;
     }
 
-    private ItemStack createDoomTrophyItem(Team team, Player winner) {
-        ItemStack stack = new ItemStack(Material.NETHER_STAR, 1);
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null) {
-            meta.displayName(Component.text("🏆 Troféu do Conquistador DOOM", NamedTextColor.GOLD, TextDecoration.BOLD)
-                    .decoration(TextDecoration.ITALIC, false));
-            meta.lore(List.of(
-                    Component.empty(),
-                    Component.text("Conquistado por: ", NamedTextColor.GRAY)
-                            .append(Component.text(winner.getName(), NamedTextColor.WHITE))
-                            .decoration(TextDecoration.ITALIC, false),
-                    Component.text("Equipe Vencedora: ", NamedTextColor.GRAY)
-                            .append(team.getFormattedTag())
-                            .append(Component.text(" " + team.getName(), team.getColor()))
-                            .decoration(TextDecoration.ITALIC, false),
-                    Component.text("Recompensa: ", NamedTextColor.GRAY)
-                            .append(Component.text("+" + DOOM_REWARD_POINTS + " Pontos", NamedTextColor.GREEN, TextDecoration.BOLD))
-                            .decoration(TextDecoration.ITALIC, false)
-            ));
-            meta.addEnchant(Enchantment.UNBREAKING, 5, true);
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
-            stack.setItemMeta(meta);
-        }
-        return stack;
-    }
-
     /**
      * Verifica se uma localizacao esta dentro da regiao protegida da Fortaleza DOOM.
      */
@@ -1632,11 +1606,6 @@ public class DoomManager {
         removeAllDoomArtifactsFromPlayer(player);
         teamManager.awardTeamPoints(team, DOOM_REWARD_POINTS, "Escapou da Fortaleza DOOM com o Coração (" + player.getName() + ")");
         int newTotal = team.getPoints();
-        ItemStack trophy = createDoomTrophyItem(team, player);
-        Map<Integer, ItemStack> leftover = player.getInventory().addItem(trophy);
-        for (ItemStack drop : leftover.values()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), drop);
-        }
 
         spawnVictoryFirework(player.getLocation());
         spawnOrUpdateHolograms();
