@@ -50,6 +50,7 @@ public class TeamManager {
     private record CombatTag(UUID attackerId, long timestamp) {}
 
     public static final int POINTS_PVP_KILL = 20;
+    public static final int POINTS_PVP_DEATH_LOSS = 10;
     public static final int POINTS_AIRDROP_FIRST = 15;
     public static final int POINTS_HUNT_KILL_PREY = 50;
     public static final int POINTS_HUNT_SURVIVE = 40;
@@ -293,43 +294,59 @@ public class TeamManager {
     }
 
     /**
-     * Contabiliza 1 kill para o assassino e 1 morte para a vitima (em PvP),
-     * somando +20 pontos permanentes na equipe do assassino (morrer em PvP = 0 pts perdidos).
+     * Contabiliza 1 kill para o assassino e 1 morte para a vitima (em PvP entre equipes diferentes),
+     * somando +20 pontos na equipe do assassino e descontando -10 pontos da equipe da vitima.
+     * Ambos os jogadores devem pertencer a times diferentes (jogadores sem time ou do mesmo time nao contam).
      */
     public void recordPvpKillAndDeath(UUID killerId, UUID victimId) {
-        if (killerId != null && !killerId.equals(victimId)) {
-            PlayerStats killerStats = getPlayerStats(killerId);
-            playerStatsMap.put(killerId, new PlayerStats(killerStats.kills() + 1, killerStats.deaths()));
-            updatePlayerDisplay(Bukkit.getPlayer(killerId));
+        if (killerId == null || victimId == null || killerId.equals(victimId)) {
+            return;
+        }
 
-            if (!isSameTeam(killerId, victimId)) {
-                Team killerTeam = getPlayerTeam(killerId);
-                if (killerTeam != null) {
-                    killerTeam.incrementTeamKills();
-                    killerTeam.addPoints(POINTS_PVP_KILL);
-                    Player victimPlayer = victimId != null ? Bukkit.getPlayer(victimId) : null;
-                    String victimName = victimPlayer != null ? victimPlayer.getName() : "inimigo";
-                    Component msg = Component.text("⭐ [+" + POINTS_PVP_KILL + " pts] ", NamedTextColor.GOLD)
-                            .append(Component.text("Abate PvP sobre " + victimName + " ", NamedTextColor.YELLOW))
-                            .append(Component.text("(Total da equipe: " + killerTeam.getPoints() + " pts)", NamedTextColor.GREEN));
-                    for (UUID memberId : killerTeam.getMembers()) {
-                        Player m = Bukkit.getPlayer(memberId);
-                        if (m != null && m.isOnline()) {
-                            m.sendMessage(msg);
-                        }
-                    }
-                }
+        Team killerTeam = getPlayerTeam(killerId);
+        Team victimTeam = getPlayerTeam(victimId);
+
+        // A contagem de PvP e pontuacao so ocorre se AMBOS tiverem time e forem de times diferentes
+        if (killerTeam == null || victimTeam == null || killerTeam.equals(victimTeam)) {
+            return;
+        }
+
+        Player killerPlayer = Bukkit.getPlayer(killerId);
+        Player victimPlayer = Bukkit.getPlayer(victimId);
+        String killerName = killerPlayer != null ? killerPlayer.getName() : "inimigo";
+        String victimName = victimPlayer != null ? victimPlayer.getName() : "inimigo";
+
+        // 1. Atualiza estatisticas e +20 pontos do time do assassino
+        PlayerStats killerStats = getPlayerStats(killerId);
+        playerStatsMap.put(killerId, new PlayerStats(killerStats.kills() + 1, killerStats.deaths()));
+        updatePlayerDisplay(killerPlayer);
+
+        killerTeam.incrementTeamKills();
+        killerTeam.addPoints(POINTS_PVP_KILL);
+        Component killerMsg = Component.text("⭐ [+" + POINTS_PVP_KILL + " pts] ", NamedTextColor.GOLD)
+                .append(Component.text("Abate PvP sobre " + victimName + " ", NamedTextColor.YELLOW))
+                .append(Component.text("(Total da equipe: " + killerTeam.getPoints() + " pts)", NamedTextColor.GREEN));
+        for (UUID memberId : killerTeam.getMembers()) {
+            Player m = Bukkit.getPlayer(memberId);
+            if (m != null && m.isOnline()) {
+                m.sendMessage(killerMsg);
             }
         }
 
-        if (victimId != null) {
-            PlayerStats victimStats = getPlayerStats(victimId);
-            playerStatsMap.put(victimId, new PlayerStats(victimStats.kills(), victimStats.deaths() + 1));
-            updatePlayerDisplay(Bukkit.getPlayer(victimId));
+        // 2. Atualiza estatisticas e -10 pontos do time da vitima
+        PlayerStats victimStats = getPlayerStats(victimId);
+        playerStatsMap.put(victimId, new PlayerStats(victimStats.kills(), victimStats.deaths() + 1));
+        updatePlayerDisplay(victimPlayer);
 
-            Team victimTeam = getPlayerTeam(victimId);
-            if (victimTeam != null) {
-                victimTeam.incrementTeamDeaths();
+        victimTeam.incrementTeamDeaths();
+        victimTeam.addPoints(-POINTS_PVP_DEATH_LOSS);
+        Component victimMsg = Component.text("💀 [-" + POINTS_PVP_DEATH_LOSS + " pts] ", NamedTextColor.RED)
+                .append(Component.text(victimName + " foi abatido por " + killerName + " ", NamedTextColor.YELLOW))
+                .append(Component.text("(Total da equipe: " + victimTeam.getPoints() + " pts)", NamedTextColor.GOLD));
+        for (UUID memberId : victimTeam.getMembers()) {
+            Player m = Bukkit.getPlayer(memberId);
+            if (m != null && m.isOnline()) {
+                m.sendMessage(victimMsg);
             }
         }
 
