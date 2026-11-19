@@ -429,9 +429,9 @@ public class KitManager {
             }
             case SOBREVIVENCIA -> {
                 items.add(new ItemStack(Material.IRON_HELMET, 1));
-                items.add(new ItemStack(Material.CHAINMAIL_CHESTPLATE, 1));
+                items.add(createEnchantedItem(Material.CHAINMAIL_CHESTPLATE, Map.of(Enchantment.PROTECTION, 1)));
                 items.add(new ItemStack(Material.IRON_LEGGINGS, 1));
-                items.add(new ItemStack(Material.CHAINMAIL_BOOTS, 1));
+                items.add(createEnchantedItem(Material.CHAINMAIL_BOOTS, Map.of(Enchantment.PROTECTION, 1)));
                 items.add(createEnchantedItem(Material.IRON_SWORD, Map.of(Enchantment.SHARPNESS, 1)));
                 items.add(new ItemStack(Material.RED_BED, 1));
                 items.add(new ItemStack(Material.ENDER_PEARL, 4));
