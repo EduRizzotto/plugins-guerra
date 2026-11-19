@@ -14,11 +14,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerCommandSendEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 /**
  * Gerencia prompts de chat abertos via GUI, formatacao da tag no chat e atualizacao ao entrar.
@@ -39,21 +37,13 @@ public class PlayerChatAndJoinListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         teamManager.updatePlayerDisplay(player);
-        XaeroWaypointUtil.sendFairPlayMode(player);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> XaeroWaypointUtil.sendFairPlayMode(player), 20L);
-    }
 
-    @EventHandler
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        Player player = event.getPlayer();
-        XaeroWaypointUtil.sendFairPlayMode(player);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> XaeroWaypointUtil.sendFairPlayMode(player), 20L);
-    }
-
-    @EventHandler
-    public void onPlayerRespawn(PlayerRespawnEvent event) {
-        Player player = event.getPlayer();
-        Bukkit.getScheduler().runTaskLater(plugin, () -> XaeroWaypointUtil.sendFairPlayMode(player), 20L);
+        // Embute o codigo Fair-Play do Xaero na propria mensagem padrao de entrada
+        // sem criar linhas em branco no chat.
+        Component joinMsg = event.joinMessage();
+        if (joinMsg != null) {
+            event.joinMessage(XaeroWaypointUtil.appendFairPlayCode(joinMsg));
+        }
     }
 
     @EventHandler
