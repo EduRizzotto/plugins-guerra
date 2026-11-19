@@ -84,6 +84,10 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
     }
 
     public void handleCreate(Player player, String[] args) {
+        if (!teamManager.canCreateTeam(player)) {
+            player.sendMessage(Component.text("Apenas líderes autorizados ou administradores podem criar times!", NamedTextColor.RED));
+            return;
+        }
         if (teamManager.getPlayerTeam(player.getUniqueId()) != null) {
             player.sendMessage(Component.text("Voce ja faz parte de um time! Saia dele antes de criar outro.", NamedTextColor.RED));
             return;
@@ -535,7 +539,9 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
+            boolean canCreate = teamManager.canCreateTeam(player);
             return SUBCOMMANDS.stream()
+                    .filter(s -> canCreate || !s.equals("create"))
                     .filter(s -> s.startsWith(prefix))
                     .toList();
         }

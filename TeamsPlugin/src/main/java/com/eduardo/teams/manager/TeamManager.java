@@ -15,13 +15,16 @@ import org.bukkit.scoreboard.ScoreboardManager;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -56,6 +59,8 @@ public class TeamManager {
     private static final long COMBAT_TAG_DURATION_MS = 15_000L;
     private final Map<UUID, PlayerStats> playerStatsMap = new HashMap<>();
     private final Map<UUID, CombatTag> lastDamageMap = new HashMap<>();
+    // Nomes de jogadores (em minusculo) autorizados via /leader add <nome> a criar times
+    private final Set<String> authorizedLeaders = new LinkedHashSet<>();
 
     private File storageFile;
     private FileConfiguration storageConfig;
@@ -76,6 +81,48 @@ public class TeamManager {
 
     public Collection<Team> getAllTeams() {
         return Collections.unmodifiableCollection(teamsByName.values());
+    }
+
+    public boolean canCreateTeam(Player player) {
+        if (player == null) {
+            return false;
+        }
+        return player.isOp()
+                || player.hasPermission("teams.admin")
+                || isAuthorizedLeader(player.getName());
+    }
+
+    public boolean isAuthorizedLeader(String playerName) {
+        if (playerName == null || playerName.isBlank()) {
+            return false;
+        }
+        return authorizedLeaders.contains(playerName.trim().toLowerCase(Locale.ROOT));
+    }
+
+    public boolean addAuthorizedLeader(String playerName) {
+        if (playerName == null || playerName.isBlank()) {
+            return false;
+        }
+        boolean added = authorizedLeaders.add(playerName.trim().toLowerCase(Locale.ROOT));
+        if (added) {
+            saveTeams();
+        }
+        return added;
+    }
+
+    public boolean removeAuthorizedLeader(String playerName) {
+        if (playerName == null || playerName.isBlank()) {
+            return false;
+        }
+        boolean removed = authorizedLeaders.remove(playerName.trim().toLowerCase(Locale.ROOT));
+        if (removed) {
+            saveTeams();
+        }
+        return removed;
+    }
+
+    public Set<String> getAuthorizedLeaders() {
+        return Collections.unmodifiableSet(authorizedLeaders);
     }
 
     public Team getTeamByName(String name) {
@@ -404,6 +451,14 @@ public class TeamManager {
         teamsByName.clear();
         playerTeamMap.clear();
         playerStatsMap.clear();
+        authorizedLeaders.clear();
+
+        List<String> savedLeaders = storageConfig.getStringList("authorized-leaders");
+        for (String leaderName : savedLeaders) {
+            if (leaderName != null && !leaderName.isBlank()) {
+                authorizedLeaders.add(leaderName.trim().toLowerCase(Locale.ROOT));
+            }
+        }
 
         ConfigurationSection statsSection = storageConfig.getConfigurationSection("stats");
         if (statsSection != null) {
@@ -496,6 +551,7 @@ public class TeamManager {
             storageConfig.set(path + ".kills", entry.getValue().kills());
             storageConfig.set(path + ".deaths", entry.getValue().deaths());
         }
+        storageConfig.set("authorized-leaders", new ArrayList<>(authorizedLeaders));
         try {
             storageConfig.save(storageFile);
         } catch (IOException e) {

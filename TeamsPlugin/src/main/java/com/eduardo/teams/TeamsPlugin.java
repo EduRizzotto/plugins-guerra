@@ -6,6 +6,7 @@ import com.eduardo.teams.airdrop.AirDropManager;
 import com.eduardo.teams.board.PlacarCommand;
 import com.eduardo.teams.board.WallBoardListener;
 import com.eduardo.teams.board.WallBoardManager;
+import com.eduardo.teams.command.LeaderCommand;
 import com.eduardo.teams.command.TeamCommand;
 import com.eduardo.teams.compass.EventCompassListener;
 import com.eduardo.teams.compass.EventCompassManager;
@@ -180,6 +181,13 @@ public final class TeamsPlugin extends JavaPlugin {
         if (closeCmd != null) {
             closeCmd.setExecutor(closeCmdExecutor);
             closeCmd.setTabCompleter(closeCmdExecutor);
+        }
+
+        LeaderCommand leaderCommand = new LeaderCommand(this.teamManager);
+        PluginCommand leaderCmd = getCommand("leader");
+        if (leaderCmd != null) {
+            leaderCmd.setExecutor(leaderCommand);
+            leaderCmd.setTabCompleter(leaderCommand);
         }
 
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);

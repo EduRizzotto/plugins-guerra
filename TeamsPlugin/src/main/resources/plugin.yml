@@ -46,6 +46,10 @@ commands:
   close:
     description: Bloqueia o acesso ao Nether ou ao The End (apenas OP/admin).
     usage: /close <nether|end>
+  leader:
+    description: Autoriza ou remove jogadores que podem criar times com /team create (apenas OP/admin).
+    aliases: [lider, lideres]
+    usage: /leader <add|remove|list> [nome]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.

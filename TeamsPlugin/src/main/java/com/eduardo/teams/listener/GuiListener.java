@@ -64,6 +64,11 @@ public class GuiListener implements Listener {
             case "back_main" -> teamGui.openMainMenu(player);
 
             case "prompt_create" -> {
+                if (!teamManager.canCreateTeam(player)) {
+                    player.closeInventory();
+                    player.sendMessage(Component.text("Apenas líderes autorizados ou administradores podem criar times!", NamedTextColor.RED));
+                    return;
+                }
                 player.closeInventory();
                 teamManager.setChatPrompt(player.getUniqueId(), TeamManager.PromptType.CREATE_TEAM);
                 player.sendMessage(Component.text("Digite no chat o ", NamedTextColor.GREEN)

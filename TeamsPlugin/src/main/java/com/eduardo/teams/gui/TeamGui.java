@@ -154,16 +154,29 @@ public class TeamGui {
                     null
             ));
 
-            inv.setItem(11, createActionItem(
-                    Material.ANVIL,
-                    Component.text("Criar um Novo Time", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false),
-                    List.of(
-                            Component.text("Clique para criar seu proprio time", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
-                            Component.text("digitando o nome no chat!", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
-                    ),
-                    "prompt_create",
-                    null
-            ));
+            if (teamManager.canCreateTeam(player)) {
+                inv.setItem(11, createActionItem(
+                        Material.ANVIL,
+                        Component.text("Criar um Novo Time", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false),
+                        List.of(
+                                Component.text("Clique para criar seu proprio time", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+                                Component.text("digitando o nome no chat!", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+                        ),
+                        "prompt_create",
+                        null
+                ));
+            } else {
+                inv.setItem(11, createActionItem(
+                        Material.BARRIER,
+                        Component.text("Criar Time (Restrito a Líderes)", NamedTextColor.RED).decoration(TextDecoration.ITALIC, false),
+                        List.of(
+                                Component.text("Apenas líderes autorizados pelo", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+                                Component.text("administrador podem criar equipes.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+                        ),
+                        "none",
+                        null
+                ));
+            }
 
             Team pendingInvite = teamManager.getPendingInvite(player.getUniqueId());
             if (pendingInvite != null) {
