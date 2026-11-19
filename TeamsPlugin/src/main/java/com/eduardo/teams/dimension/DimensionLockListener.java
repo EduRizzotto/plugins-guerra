@@ -39,19 +39,21 @@ public class DimensionLockListener implements Listener {
         PlayerTeleportEvent.TeleportCause cause = event.getCause();
         World targetWorld = (event.getTo() != null) ? event.getTo().getWorld() : null;
 
-        boolean goingToNether = (cause == PlayerTeleportEvent.TeleportCause.NETHER_PORTAL)
-                || (targetWorld != null && targetWorld.getEnvironment() == World.Environment.NETHER);
-        if (goingToNether && !dimensionManager.isNetherOpen()) {
-            event.setCancelled(true);
-            sendRateLimitedWarning(player, "🔒 O Nether está bloqueado no momento! Aguarde a liberação dos administradores.");
+        if (cause == PlayerTeleportEvent.TeleportCause.END_PORTAL
+                || (targetWorld != null && targetWorld.getEnvironment() == World.Environment.THE_END)) {
+            if (!dimensionManager.isEndOpen()) {
+                event.setCancelled(true);
+                sendRateLimitedWarning(player, "🔒 O The End está bloqueado no momento! Aguarde a liberação dos administradores.");
+            }
             return;
         }
 
-        boolean goingToEnd = (cause == PlayerTeleportEvent.TeleportCause.END_PORTAL)
-                || (targetWorld != null && targetWorld.getEnvironment() == World.Environment.THE_END);
-        if (goingToEnd && !dimensionManager.isEndOpen()) {
-            event.setCancelled(true);
-            sendRateLimitedWarning(player, "🔒 O The End está bloqueado no momento! Aguarde a liberação dos administradores.");
+        if (cause == PlayerTeleportEvent.TeleportCause.NETHER_PORTAL
+                || (targetWorld != null && targetWorld.getEnvironment() == World.Environment.NETHER)) {
+            if (!dimensionManager.isNetherOpen()) {
+                event.setCancelled(true);
+                sendRateLimitedWarning(player, "🔒 O Nether está bloqueado no momento! Aguarde a liberação dos administradores.");
+            }
         }
     }
 
@@ -85,6 +87,15 @@ public class DimensionLockListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPortalCreate(PortalCreateEvent event) {
+        if (event.getReason() == PortalCreateEvent.CreateReason.END_PLATFORM) {
+            if (!dimensionManager.isEndOpen()) {
+                event.setCancelled(true);
+                if (event.getEntity() instanceof Player player) {
+                    sendRateLimitedWarning(player, "🔒 O The End está bloqueado no momento! Você ainda não pode entrar no Fim.");
+                }
+            }
+            return;
+        }
         if (!dimensionManager.isNetherOpen()) {
             event.setCancelled(true);
             if (event.getEntity() instanceof Player player) {
