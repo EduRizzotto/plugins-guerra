@@ -140,7 +140,53 @@ public class DoomManager {
     private BukkitTask buildTask;
     private int tickCounter = 0;
 
-    private record SpawnerPoint(int dx, int dy, int dz, EntityType type) {
+    public enum DoomVariant {
+        DOOM_1("Fortaleza DOOM", "Cidadela Infernal", Material.DEEPSLATE_BRICKS, Material.CRYING_OBSIDIAN, Material.GILDED_BLACKSTONE),
+        DOOM_2("Fortaleza DOOM II", "Abismo Corrompido", Material.DARK_PRISMARINE, Material.SCULK, Material.SEA_LANTERN),
+        DOOM_3("Fortaleza DOOM III", "Templo do Sol Sangrento", Material.RED_NETHER_BRICKS, Material.GILDED_BLACKSTONE, Material.GOLD_BLOCK);
+
+        private final String title;
+        private final String subtitle;
+        private final Material innerWallMaterial;
+        private final Material pillarMaterial;
+        private final Material accentMaterial;
+
+        DoomVariant(String title, String subtitle, Material innerWallMaterial, Material pillarMaterial, Material accentMaterial) {
+            this.title = title;
+            this.subtitle = subtitle;
+            this.innerWallMaterial = innerWallMaterial;
+            this.pillarMaterial = pillarMaterial;
+            this.accentMaterial = accentMaterial;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getSubtitle() {
+            return subtitle;
+        }
+
+        public String getFullTitle() {
+            return title + " (" + subtitle + ")";
+        }
+
+        public Material getInnerWallMaterial() {
+            return innerWallMaterial;
+        }
+
+        public Material getPillarMaterial() {
+            return pillarMaterial;
+        }
+
+        public Material getAccentMaterial() {
+            return accentMaterial;
+        }
+    }
+
+    private DoomVariant currentVariant = DoomVariant.DOOM_1;
+
+    record SpawnerPoint(int dx, int dy, int dz, EntityType type) {
     }
 
     public DoomManager(TeamsPlugin plugin, TeamManager teamManager) {
@@ -315,6 +361,10 @@ public class DoomManager {
     }
 
     public void startRandomDoom(World world, CommandSender initiator) {
+        startRandomDoom(world, initiator, DoomVariant.DOOM_1);
+    }
+
+    public void startRandomDoom(World world, CommandSender initiator, DoomVariant variant) {
         if (world == null) {
             return;
         }
@@ -322,10 +372,12 @@ public class DoomManager {
             stopDoom(false);
         }
 
+        this.currentVariant = (variant != null) ? variant : DoomVariant.DOOM_1;
         this.generating = true;
         if (initiator != null) {
             initiator.sendMessage(Component.text(
-                    "⚡ Buscando terreno entre " + MIN_SPAWN_RADIUS + " e " + MAX_SPAWN_RADIUS + " blocos do spawn e erguendo a Fortaleza DOOM (10 Salões)...",
+                    "⚡ Buscando terreno entre " + MIN_SPAWN_RADIUS + " e " + MAX_SPAWN_RADIUS + " blocos do spawn e erguendo a "
+                            + currentVariant.getFullTitle() + " (10 Salões)...",
                     NamedTextColor.YELLOW));
         }
 
@@ -340,15 +392,20 @@ public class DoomManager {
     }
 
     public void startDoomAt(Location targetEntrance, CommandSender initiator) {
+        startDoomAt(targetEntrance, initiator, DoomVariant.DOOM_1);
+    }
+
+    public void startDoomAt(Location targetEntrance, CommandSender initiator, DoomVariant variant) {
         if (targetEntrance == null || targetEntrance.getWorld() == null) {
             return;
         }
         if (active || generating) {
             stopDoom(false);
         }
+        this.currentVariant = (variant != null) ? variant : DoomVariant.DOOM_1;
         this.generating = true;
         if (initiator != null) {
-            initiator.sendMessage(Component.text("⚡ Erguendo a colossal Fortaleza DOOM (10 Salões) nesta localização...", NamedTextColor.YELLOW));
+            initiator.sendMessage(Component.text("⚡ Erguendo a colossal " + currentVariant.getFullTitle() + " (10 Salões) nesta localização...", NamedTextColor.YELLOW));
         }
         beginDungeonConstruction(targetEntrance.toBlockLocation(), initiator);
     }
@@ -410,6 +467,10 @@ public class DoomManager {
     }
 
     private void prepareSpawnerList() {
+        if (currentVariant != DoomVariant.DOOM_1) {
+            DoomVariantArchitect.populateVariantSpawners(currentVariant, spawnerPoints);
+            return;
+        }
         spawnerPoints.clear();
         // Sala 1: Patio da Carnificina (6 spawners)
         spawnerPoints.add(new SpawnerPoint(-13, 2, 7, EntityType.HUSK));
@@ -564,11 +625,11 @@ public class DoomManager {
 
                     boolean isInnerSideLayer = Math.abs(dx) == HALF_WIDTH - 1 && dz > 1 && dz < MAX_DZ - 1;
                     if (isInnerSideLayer && (dz % 6 == 0)) {
-                        setDungeonBlock(dx, dy, dz, (dy == 4 || dy == 10) ? Material.GILDED_BLACKSTONE : Material.CRYING_OBSIDIAN);
+                        setDungeonBlock(dx, dy, dz, (dy == 4 || dy == 10) ? currentVariant.getAccentMaterial() : currentVariant.getPillarMaterial());
                     } else if (Math.abs(dx) == HALF_WIDTH || dz == 0 || dz == MAX_DZ) {
                         setDungeonBlock(dx, dy, dz, Material.POLISHED_DEEPSLATE);
                     } else {
-                        setDungeonBlock(dx, dy, dz, Material.DEEPSLATE_BRICKS);
+                        setDungeonBlock(dx, dy, dz, currentVariant.getInnerWallMaterial());
                     }
                 } else if (isFloor) {
                     setDungeonBlock(dx, 0, dz, resolveFloorMaterial(dx, dz));
@@ -587,7 +648,15 @@ public class DoomManager {
 
         int[][] standardThreeDoors = {{-12, -10}, {-2, 2}, {10, 12}};
 
-        // 2. Arquitetura interna dos 10 Saloes Interligados
+        if (currentVariant == DoomVariant.DOOM_2) {
+            DoomVariantArchitect.buildDoom2InteriorSlice(this, dz, standardThreeDoors);
+            return;
+        } else if (currentVariant == DoomVariant.DOOM_3) {
+            DoomVariantArchitect.buildDoom3InteriorSlice(this, dz, standardThreeDoors);
+            return;
+        }
+
+        // 2. Arquitetura interna dos 10 Saloes Interligados (DOOM 1)
         if (dz >= 2 && dz <= 24) {
             buildHall1CarnageSlice(dz, standardThreeDoors);
         } else if (dz == 25 || dz == 26) {
@@ -630,6 +699,9 @@ public class DoomManager {
     }
 
     private Material resolveFloorMaterial(int dx, int dz) {
+        if (currentVariant != DoomVariant.DOOM_1) {
+            return DoomVariantArchitect.resolveVariantFloorMaterial(currentVariant, dx, dz);
+        }
         // Fossos de Parkour (Salas 2, 4, 6 e 8): Magma e Areia das Almas
         if ((dz >= 30 && dz <= 52)
                 || (dz >= 85 && dz <= 96)
@@ -658,7 +730,7 @@ public class DoomManager {
      * Helper universal para escadarias que sobem 4 blocos (dy = 1 -> 2 -> 3 -> 4) ao longo de 4 fatias Z
      * usando blocos reais de escada (POLISHED_BLACKSTONE_BRICK_STAIRS) para subida fluida sem precisar pular!
      */
-    private void buildAscendingStairsSlice(int dz, int startDz, int[][] lanes) {
+    void buildAscendingStairsSlice(int dz, int startDz, int[][] lanes) {
         int stepHeight = (dz - startDz) + 1; // 1, 2, 3, 4
         if (stepHeight < 1 || stepHeight > 4) {
             return;
@@ -680,7 +752,7 @@ public class DoomManager {
     /**
      * Helper universal para escadarias largas que descem 4 blocos (dy = 4 -> 3 -> 2 -> 1) ao longo de 4 fatias Z.
      */
-    private void buildDescendingStairsSlice(int dz, int startDz) {
+    void buildDescendingStairsSlice(int dz, int startDz) {
         int stepHeight = 4 - (dz - startDz); // 4, 3, 2, 1
         if (stepHeight < 1 || stepHeight > 4) {
             return;
@@ -697,7 +769,7 @@ public class DoomManager {
     /**
      * Helper para escadas e ladders de retorno no inicio dos fossos de parkour (direcao -Z de volta ao balcao inicial).
      */
-    private void buildPitRecoveryStairsAndLadders(int dz, int pitStartDz) {
+    void buildPitRecoveryStairsAndLadders(int dz, int pitStartDz) {
         if (dz == pitStartDz) {
             for (int ladderX : new int[]{-14, -6, 0, 6, 14}) {
                 for (int dy = 1; dy <= 4; dy++) {
@@ -777,7 +849,7 @@ public class DoomManager {
         }
     }
 
-    private void buildPartitionWall(int dz, int[][] doorwaysX, int doorMinY, int doorMaxY, boolean elevatedFloor) {
+    void buildPartitionWall(int dz, int[][] doorwaysX, int doorMinY, int doorMaxY, boolean elevatedFloor) {
         int innerWidth = HALF_WIDTH - 2;
         for (int dx = -innerWidth; dx <= innerWidth; dx++) {
             boolean inDoorX = false;
@@ -1308,11 +1380,11 @@ public class DoomManager {
         spawnOrUpdateHolograms();
         updateBossBar();
         updateEventCompasses();
-        XaeroWaypointUtil.broadcastWaypoint("Fortaleza DOOM", "D", entranceLocation, XaeroWaypointUtil.COLOR_DARK_RED);
+        XaeroWaypointUtil.broadcastWaypoint(currentVariant.getTitle(), "D", entranceLocation, XaeroWaypointUtil.COLOR_DARK_RED);
 
         if (initiator != null) {
             initiator.sendMessage(Component.text(
-                    "✔ Fortaleza DOOM (10 Salões) gerada com sucesso! Entrada em X: " + entranceLocation.getBlockX()
+                    "✔ " + currentVariant.getFullTitle() + " (10 Salões) gerada com sucesso! Entrada em X: " + entranceLocation.getBlockX()
                             + ", Y: " + entranceLocation.getBlockY()
                             + ", Z: " + entranceLocation.getBlockZ(),
                     NamedTextColor.GREEN));
@@ -1320,17 +1392,15 @@ public class DoomManager {
 
         Bukkit.broadcast(Component.empty());
         Bukkit.broadcast(Component.text("==============================================", NamedTextColor.DARK_RED, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text("      💀 FORTALEZA DOOM SURGIU NO MAPA! 💀", NamedTextColor.RED, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text("  Uma dungeon colossal com ", NamedTextColor.GRAY)
-                .append(Component.text("UMA ÚNICA ENTRADA", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" foi aberta!", NamedTextColor.GRAY)));
+        Bukkit.broadcast(Component.text("   💀 " + currentVariant.getTitle().toUpperCase() + " SURGIU NO MAPA! 💀", NamedTextColor.RED, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("  Tema: ", NamedTextColor.GRAY)
+                .append(Component.text(currentVariant.getSubtitle(), NamedTextColor.GOLD, TextDecoration.BOLD))
+                .append(Component.text(" (10 Salões • Entrada Única)", NamedTextColor.YELLOW)));
         Bukkit.broadcast(Component.text("  Entrada: ", NamedTextColor.GRAY)
                 .append(Component.text("X: " + entranceLocation.getBlockX()
                         + ", Y: " + entranceLocation.getBlockY()
                         + ", Z: " + entranceLocation.getBlockZ(), NamedTextColor.WHITE, TextDecoration.BOLD))
                 .append(Component.text(" (Overworld)", NamedTextColor.DARK_GRAY)));
-        Bukkit.broadcast(Component.text("  Desafios: ", NamedTextColor.GRAY)
-                .append(Component.text("10 Salões • Parkours • Labirinto • Gelo • Forja • Hordas", NamedTextColor.GOLD)));
         Bukkit.broadcast(Component.text("  Portão Principal: ", NamedTextColor.GRAY)
                 .append(Component.text("🔒 FECHADO (Abre 3 min após alguém se aproximar!)", NamedTextColor.YELLOW, TextDecoration.BOLD)));
         Bukkit.broadcast(Component.text("  Baú Final: ", NamedTextColor.GRAY)
@@ -1339,9 +1409,9 @@ public class DoomManager {
         Bukkit.broadcast(Component.empty());
 
         Title startTitle = Title.title(
-                Component.text("💀 FORTALEZA DOOM 💀", NamedTextColor.DARK_RED, TextDecoration.BOLD),
-                Component.text("Entrada: X " + entranceLocation.getBlockX() + ", Z " + entranceLocation.getBlockZ()
-                        + " | 10 Salões | +" + DOOM_REWARD_POINTS + " pts", NamedTextColor.GOLD),
+                Component.text("💀 " + currentVariant.getTitle().toUpperCase() + " 💀", NamedTextColor.DARK_RED, TextDecoration.BOLD),
+                Component.text(currentVariant.getSubtitle() + " | X " + entranceLocation.getBlockX() + ", Z " + entranceLocation.getBlockZ()
+                        + " | +" + DOOM_REWARD_POINTS + " pts", NamedTextColor.GOLD),
                 Title.Times.times(Duration.ofMillis(400), Duration.ofSeconds(4), Duration.ofMillis(800))
         );
         for (Player online : Bukkit.getOnlinePlayers()) {
@@ -1970,7 +2040,7 @@ public class DoomManager {
         }
     }
 
-    private void setDungeonBlock(int dx, int dy, int dz, Material material) {
+    void setDungeonBlock(int dx, int dy, int dz, Material material) {
         setDungeonBlockData(dx, dy, dz, Bukkit.createBlockData(material));
     }
 
@@ -2094,8 +2164,8 @@ public class DoomManager {
             } else {
                 statusLine = Component.text("🔓 Portão Aberto — Pegue o Coração (+" + DOOM_REWARD_POINTS + " pts) e Saia!", NamedTextColor.GREEN, TextDecoration.BOLD);
             }
-            Component text = Component.text("💀 FORTALEZA DOOM 💀\n", NamedTextColor.DARK_RED, TextDecoration.BOLD)
-                    .append(Component.text("Entrada Única — 10 Salões de Desafio\n", NamedTextColor.GOLD))
+            Component text = Component.text("💀 " + currentVariant.getTitle().toUpperCase() + " 💀\n", NamedTextColor.DARK_RED, TextDecoration.BOLD)
+                    .append(Component.text(currentVariant.getSubtitle() + " — 10 Salões\n", NamedTextColor.GOLD))
                     .append(statusLine);
             entranceHologramId = updateSingleHologram(entranceHologramId, holoLoc, text);
         }

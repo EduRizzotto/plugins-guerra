@@ -165,10 +165,12 @@ public final class TeamsPlugin extends JavaPlugin {
             dominioCmd.setTabCompleter(kothCommand);
         }
 
-        PluginCommand doomCmd = getCommand("doom");
-        if (doomCmd != null) {
-            doomCmd.setExecutor(doomCommand);
-            doomCmd.setTabCompleter(doomCommand);
+        for (String doomCmdName : new String[]{"doom", "doom2", "doom3"}) {
+            PluginCommand doomCmd = getCommand(doomCmdName);
+            if (doomCmd != null) {
+                doomCmd.setExecutor(doomCommand);
+                doomCmd.setTabCompleter(doomCommand);
+            }
         }
 
         PluginCommand openCmd = getCommand("open");

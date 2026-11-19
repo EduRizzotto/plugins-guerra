@@ -1,5 +1,6 @@
 package com.eduardo.teams.doom;
 
+import com.eduardo.teams.doom.DoomManager.DoomVariant;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -19,11 +20,11 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 /**
- * Comando /doom (apenas OP / admin):
- * - /doom          -> Gera a gigantesca Fortaleza DOOM entre 5000 e 6000 blocos de raio do spawn
- * - /doom aqui     -> Gera a Fortaleza DOOM imediatamente na frente da sua posicao atual
- * - /doom tp       -> Teleporta para a entrada unica da Fortaleza DOOM ativa
- * - /doom parar    -> Encerra a Fortaleza DOOM ativa e restaura 100% do terreno original
+ * Comandos /doom, /doom2 e /doom3 (apenas OP / admin):
+ * - /doom   -> Gera a Fortaleza DOOM I (Cidadela Infernal) entre 5000 e 6000 blocos de raio do spawn
+ * - /doom2  -> Gera a Fortaleza DOOM II (Abismo Corrompido) entre 5000 e 6000 blocos de raio do spawn
+ * - /doom3  -> Gera a Fortaleza DOOM III (Templo do Sol Sangrento) entre 5000 e 6000 blocos de raio do spawn
+ * - Subcomandos em qualquer um deles: [aqui|tp|abrir|parar]
  */
 public class DoomCommand implements CommandExecutor, TabCompleter {
 
@@ -33,12 +34,25 @@ public class DoomCommand implements CommandExecutor, TabCompleter {
         this.doomManager = doomManager;
     }
 
+    private DoomVariant resolveVariantFromCommand(Command command, String label) {
+        String key = label.toLowerCase(Locale.ROOT);
+        if (key.contains("3") || command.getName().equalsIgnoreCase("doom3")) {
+            return DoomVariant.DOOM_3;
+        }
+        if (key.contains("2") || command.getName().equalsIgnoreCase("doom2")) {
+            return DoomVariant.DOOM_2;
+        }
+        return DoomVariant.DOOM_1;
+    }
+
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (!sender.isOp() && !sender.hasPermission("teams.admin")) {
-            sender.sendMessage(Component.text("Apenas administradores podem iniciar ou controlar o evento /doom!", NamedTextColor.RED));
+            sender.sendMessage(Component.text("Apenas administradores podem iniciar ou controlar o evento /" + label + "!", NamedTextColor.RED));
             return true;
         }
+
+        DoomVariant variant = resolveVariantFromCommand(command, label);
 
         if (args.length == 0) {
             World world = (sender instanceof Player p) ? p.getWorld() : getDefaultOverworld();
@@ -46,7 +60,7 @@ public class DoomCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Component.text("Mundo Overworld não encontrado!", NamedTextColor.RED));
                 return true;
             }
-            doomManager.startRandomDoom(world, sender);
+            doomManager.startRandomDoom(world, sender, variant);
             return true;
         }
 
@@ -54,11 +68,11 @@ public class DoomCommand implements CommandExecutor, TabCompleter {
         switch (sub) {
             case "aqui", "here" -> {
                 if (!(sender instanceof Player player)) {
-                    sender.sendMessage(Component.text("Apenas jogadores podem usar /doom aqui.", NamedTextColor.RED));
+                    sender.sendMessage(Component.text("Apenas jogadores podem usar /" + label + " aqui.", NamedTextColor.RED));
                     return true;
                 }
                 Location targetEntrance = player.getLocation().toBlockLocation().add(0, 0, 10);
-                doomManager.startDoomAt(targetEntrance, sender);
+                doomManager.startDoomAt(targetEntrance, sender, variant);
             }
             case "tp", "teleport" -> {
                 if (!(sender instanceof Player player)) {

@@ -37,9 +37,17 @@ commands:
     aliases: [torre, koth]
     usage: /dominio [aqui|parar]
   doom:
-    description: Gera ou controla a gigantesca Fortaleza DOOM entre 5000 e 6000 blocos do spawn (apenas OP/admin).
+    description: Gera ou controla a gigantesca Fortaleza DOOM I (Cidadela Infernal) entre 5000 e 6000 blocos do spawn (apenas OP/admin).
     aliases: [fortalezadoom, dungeondoom]
     usage: /doom [aqui|tp|abrir|parar]
+  doom2:
+    description: Gera ou controla a gigantesca Fortaleza DOOM II (Abismo Corrompido) entre 5000 e 6000 blocos do spawn (apenas OP/admin).
+    aliases: [fortalezadoom2, dungeondoom2]
+    usage: /doom2 [aqui|tp|abrir|parar]
+  doom3:
+    description: Gera ou controla a gigantesca Fortaleza DOOM III (Templo do Sol Sangrento) entre 5000 e 6000 blocos do spawn (apenas OP/admin).
+    aliases: [fortalezadoom3, dungeondoom3]
+    usage: /doom3 [aqui|tp|abrir|parar]
   open:
     description: Libera o acesso ao Nether ou ao The End (apenas OP/admin).
     usage: /open <nether|end>
