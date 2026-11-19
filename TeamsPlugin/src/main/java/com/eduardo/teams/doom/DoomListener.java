@@ -5,12 +5,16 @@ import com.eduardo.teams.model.Team;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
@@ -24,6 +28,8 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -32,6 +38,7 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -159,6 +166,58 @@ public class DoomListener implements Listener {
             if (doomManager.isProtectedLocation(b.getLocation())) {
                 event.setCancelled(true);
                 return;
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onEnderPearlUse(PlayerInteractEvent event) {
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        ItemStack item = event.getItem();
+        if (item == null || item.getType() != Material.ENDER_PEARL) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (doomManager.isProtectedLocation(player.getLocation()) || doomManager.isCarrier(player)) {
+            event.setCancelled(true);
+            event.setUseItemInHand(Event.Result.DENY);
+            player.sendMessage(Component.text("Você não pode usar Ender Pearl dentro da Fortaleza DOOM!", NamedTextColor.RED));
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.7f);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEnderPearlLaunch(ProjectileLaunchEvent event) {
+        if (!(event.getEntity() instanceof EnderPearl pearl)) {
+            return;
+        }
+        if (pearl.getShooter() instanceof Player player) {
+            if (doomManager.isProtectedLocation(player.getLocation())
+                    || doomManager.isProtectedLocation(pearl.getLocation())
+                    || doomManager.isCarrier(player)) {
+                event.setCancelled(true);
+                player.sendMessage(Component.text("Você não pode usar Ender Pearl dentro da Fortaleza DOOM!", NamedTextColor.RED));
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.7f);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEnderPearlHitDungeon(ProjectileHitEvent event) {
+        if (!(event.getEntity() instanceof EnderPearl pearl)) {
+            return;
+        }
+        boolean hitProtected = doomManager.isProtectedLocation(pearl.getLocation())
+                || (event.getHitBlock() != null && doomManager.isProtectedLocation(event.getHitBlock().getLocation()));
+        if (hitProtected) {
+            event.setCancelled(true);
+            pearl.remove();
+            if (pearl.getShooter() instanceof Player player) {
+                player.sendMessage(Component.text("Você não pode usar Ender Pearl dentro da Fortaleza DOOM!", NamedTextColor.RED));
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.7f);
             }
         }
     }
