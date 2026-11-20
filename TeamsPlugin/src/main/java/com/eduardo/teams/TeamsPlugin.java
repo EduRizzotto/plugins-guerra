@@ -41,6 +41,9 @@ import com.eduardo.teams.relic.RelicCommand;
 import com.eduardo.teams.relic.RelicListener;
 import com.eduardo.teams.relic.RelicManager;
 import com.eduardo.teams.voice.TeamVoicechatIntegration;
+import com.eduardo.teams.zone.ZoneCommand;
+import com.eduardo.teams.zone.ZoneListener;
+import com.eduardo.teams.zone.ZoneManager;
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -64,6 +67,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private DoomManager doomManager;
     private DimensionLockManager dimensionLockManager;
     private KitManager kitManager;
+    private ZoneManager zoneManager;
 
     @Override
     public void onEnable() {
@@ -111,6 +115,10 @@ public final class TeamsPlugin extends JavaPlugin {
         this.kitManager = new KitManager(this);
         KitGui kitGui = new KitGui(this, this.kitManager);
         KitCommand kitCommand = new KitCommand(this.kitManager, kitGui);
+
+        this.zoneManager = new ZoneManager(this);
+        ZoneCommand protegerCommand = new ZoneCommand(this.zoneManager, false);
+        ZoneCommand safezoneCommand = new ZoneCommand(this.zoneManager, true);
 
         PluginCommand cmd = getCommand("team");
         if (cmd != null) {
@@ -206,6 +214,18 @@ public final class TeamsPlugin extends JavaPlugin {
             kitCmd.setTabCompleter(kitCommand);
         }
 
+        PluginCommand protegerCmd = getCommand("proteger");
+        if (protegerCmd != null) {
+            protegerCmd.setExecutor(protegerCommand);
+            protegerCmd.setTabCompleter(protegerCommand);
+        }
+
+        PluginCommand safezoneCmd = getCommand("safezone");
+        if (safezoneCmd != null) {
+            safezoneCmd.setExecutor(safezoneCommand);
+            safezoneCmd.setTabCompleter(safezoneCommand);
+        }
+
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);
         hornListener.setQuestManager(this.questManager);
 
@@ -226,6 +246,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new DoomListener(this.doomManager, this.teamManager), this);
         pm.registerEvents(new DimensionLockListener(this.dimensionLockManager), this);
         pm.registerEvents(new KitListener(this.kitManager, kitGui), this);
+        pm.registerEvents(new ZoneListener(this.zoneManager), this);
         pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
@@ -285,6 +306,9 @@ public final class TeamsPlugin extends JavaPlugin {
         }
         if (this.kitManager != null) {
             this.kitManager.saveData();
+        }
+        if (this.zoneManager != null) {
+            this.zoneManager.saveZones();
         }
         getLogger().info("TeamsPlugin desativado e dados salvos.");
     }
