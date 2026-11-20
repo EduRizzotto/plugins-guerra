@@ -52,7 +52,7 @@ public class KitManager {
         RANGO(
                 "rango",
                 "Kit Rango",
-                "R$ 04,99",
+                "R$ 03,99",
                 Material.COOKED_BEEF,
                 NamedTextColor.GOLD,
                 List.of(
@@ -70,9 +70,9 @@ public class KitManager {
                 NamedTextColor.GREEN,
                 List.of(
                         "1x Capacete de Ferro",
-                        "1x Peitoral Cota de Malha",
+                        "1x Peitoral Cota de Malha (Proteção I)",
                         "1x Calça de Ferro",
-                        "1x Bota Cota de Malha",
+                        "1x Bota Cota de Malha (Proteção I)",
                         "1x Espada de Ferro (Afiação I)",
                         "1x Cama",
                         "4x Pérolas do Ender"
@@ -81,7 +81,7 @@ public class KitManager {
         MINERADOR(
                 "minerador",
                 "Kit Minerador",
-                "R$ 07,99",
+                "R$ 06,99",
                 Material.IRON_PICKAXE,
                 NamedTextColor.AQUA,
                 List.of(
@@ -104,7 +104,10 @@ public class KitManager {
                         "1x Suporte de Poções",
                         "2x Poção Arrem. Dano Inst. I",
                         "2x Poção Arrem. Veneno I",
-                        "2x Poção Arrem. Cura Inst. II"
+                        "2x Poção Arrem. Cura Inst. II",
+                        "2x Vara de Blaze",
+                        "2x Fungo do Nether",
+                        "2x Areia das Almas"
                 )
         ),
         ARQUEIRO(
@@ -117,13 +120,17 @@ public class KitManager {
                         "1x Arco (Força I)",
                         "24x Flechas",
                         "8x Flechas de Veneno",
-                        "8x Flechas Espectrais"
+                        "8x Flechas Espectrais",
+                        "1x Capuz de Couro",
+                        "1x Peitoral de Couro",
+                        "1x Calça de Couro",
+                        "1x Bota de Couro"
                 )
         ),
         CONSTRUTOR(
                 "construtor",
                 "Kit Construtor",
-                "R$ 06,99",
+                "R$ 05,99",
                 Material.STONE_BRICKS,
                 NamedTextColor.BLUE,
                 List.of(
@@ -458,12 +465,19 @@ public class KitManager {
                 items.add(createPotionItem(Material.SPLASH_POTION, 2, PotionType.HARMING));
                 items.add(createPotionItem(Material.SPLASH_POTION, 2, PotionType.POISON));
                 items.add(createPotionItem(Material.SPLASH_POTION, 2, PotionType.STRONG_HEALING));
+                items.add(new ItemStack(Material.BLAZE_ROD, 2));
+                items.add(new ItemStack(Material.NETHER_WART, 2));
+                items.add(new ItemStack(Material.SOUL_SAND, 2));
             }
             case ARQUEIRO -> {
                 items.add(createEnchantedItem(Material.BOW, Map.of(Enchantment.POWER, 1)));
                 items.add(new ItemStack(Material.ARROW, 24));
                 items.add(createPotionItem(Material.TIPPED_ARROW, 8, PotionType.POISON));
                 items.add(new ItemStack(Material.SPECTRAL_ARROW, 8));
+                items.add(new ItemStack(Material.LEATHER_HELMET, 1));
+                items.add(new ItemStack(Material.LEATHER_CHESTPLATE, 1));
+                items.add(new ItemStack(Material.LEATHER_LEGGINGS, 1));
+                items.add(new ItemStack(Material.LEATHER_BOOTS, 1));
             }
             case CONSTRUTOR -> {
                 items.add(createIronConstructionWand());
