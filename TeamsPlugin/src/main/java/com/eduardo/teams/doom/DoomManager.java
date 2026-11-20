@@ -52,14 +52,24 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,6 +78,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Gerencia o mega-evento da Fortaleza DOOM (/doom):
@@ -132,6 +144,7 @@ public class DoomManager {
 
     private final Map<Location, BlockData> originalBlocks = new LinkedHashMap<>();
     private final Set<Location> playerPlacedBlocks = new HashSet<>();
+    private final Map<Location, BlockData> extraPlayerOriginalBlocks = new LinkedHashMap<>();
     private final List<SpawnerPoint> spawnerPoints = new ArrayList<>();
     private final Set<UUID> spawnedMobIds = new HashSet<>();
     private final Set<Long> ticketedChunks = new HashSet<>();
@@ -195,6 +208,7 @@ public class DoomManager {
         this.teamManager = teamManager;
         this.doomArtifactKey = new NamespacedKey(plugin, "doom_artifact_200pts");
         this.doomMobKey = new NamespacedKey(plugin, "doom_dungeon_mob");
+        loadDoomState();
         this.tickTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
     }
 
@@ -211,7 +225,17 @@ public class DoomManager {
             buildTask.cancel();
             buildTask = null;
         }
-        stopDoom(false);
+        if (generating) {
+            // Se ainda estava no meio da construcao incompleta ao desligar, reverte
+            stopDoom(false);
+            return;
+        }
+        if (active) {
+            // Preserva a Fortaleza DOOM ativa no disco para continuar funcionando (e permitir /doom parar) apos reiniciar
+            saveDynamicState();
+            clearBossBar();
+            releaseChunkTickets();
+        }
     }
 
     public boolean isActive() {
@@ -344,7 +368,9 @@ public class DoomManager {
             return;
         }
         if (!originalBlocks.containsKey(norm) && previousData != null) {
-            originalBlocks.put(norm, previousData.clone());
+            BlockData cloned = previousData.clone();
+            originalBlocks.put(norm, cloned);
+            extraPlayerOriginalBlocks.put(norm, cloned);
         }
         playerPlacedBlocks.add(norm);
     }
@@ -1380,6 +1406,8 @@ public class DoomManager {
         spawnOrUpdateHolograms();
         updateBossBar();
         updateEventCompasses();
+        saveBlocksArchive();
+        saveDynamicState();
         XaeroWaypointUtil.broadcastWaypoint(currentVariant.getTitle(), "D", entranceLocation, XaeroWaypointUtil.COLOR_DARK_RED);
 
         if (initiator != null) {
@@ -1712,6 +1740,9 @@ public class DoomManager {
         if (tickCounter % 6 == 0 && !artifactClaimed) {
             pulseNearbySpawners();
         }
+        if (tickCounter % 10 == 0) {
+            saveDynamicState();
+        }
 
         if (artifactClaimed) {
             collapseSecondsRemaining--;
@@ -2012,6 +2043,8 @@ public class DoomManager {
 
         restoreOriginalBlocks();
         this.playerPlacedBlocks.clear();
+        this.extraPlayerOriginalBlocks.clear();
+        deleteSavedState();
 
         for (Player p : evacuatedPlayers) {
             Location safe = p.getLocation();
@@ -2341,5 +2374,237 @@ public class DoomManager {
             meta.setPower(1);
             fw.setFireworkMeta(meta);
         });
+    }
+
+    private File getBlocksArchiveFile() {
+        return new File(plugin.getDataFolder(), "doom_blocks.dat.gz");
+    }
+
+    private File getDynamicStateFile() {
+        return new File(plugin.getDataFolder(), "doom_state.yml");
+    }
+
+    private void saveBlocksArchive() {
+        if (!active || dungeonWorld == null || originalBlocks.isEmpty()) {
+            return;
+        }
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
+        File file = getBlocksArchiveFile();
+        try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(new FileOutputStream(file))))) {
+            out.writeUTF(dungeonWorld.getName());
+            out.writeInt(originX);
+            out.writeInt(baseY);
+            out.writeInt(originZ);
+            out.writeUTF(currentVariant.name());
+
+            Map<String, Integer> paletteIndex = new HashMap<>();
+            List<String> palette = new ArrayList<>();
+            for (BlockData data : originalBlocks.values()) {
+                String str = data.getAsString();
+                if (!paletteIndex.containsKey(str)) {
+                    paletteIndex.put(str, palette.size());
+                    palette.add(str);
+                }
+            }
+
+            out.writeInt(palette.size());
+            for (String entry : palette) {
+                out.writeUTF(entry);
+            }
+
+            out.writeInt(originalBlocks.size());
+            for (Map.Entry<Location, BlockData> entry : originalBlocks.entrySet()) {
+                Location loc = entry.getKey();
+                out.writeInt(loc.getBlockX());
+                out.writeInt(loc.getBlockY());
+                out.writeInt(loc.getBlockZ());
+                out.writeInt(paletteIndex.get(entry.getValue().getAsString()));
+            }
+        } catch (IOException e) {
+            plugin.getLogger().warning("[DOOM] Falha ao salvar arquivo de blocos originais: " + e.getMessage());
+        }
+    }
+
+    private void saveDynamicState() {
+        if (!active || dungeonWorld == null) {
+            return;
+        }
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.set("world", dungeonWorld.getName());
+        cfg.set("originX", originX);
+        cfg.set("baseY", baseY);
+        cfg.set("originZ", originZ);
+        cfg.set("variant", currentVariant.name());
+        cfg.set("gateOpened", gateOpened);
+        cfg.set("gateCountdownStarted", gateCountdownStarted);
+        cfg.set("gateSecondsRemaining", gateSecondsRemaining);
+        cfg.set("artifactClaimed", artifactClaimed);
+        cfg.set("collapseSecondsRemaining", collapseSecondsRemaining);
+        cfg.set("entranceHologramId", entranceHologramId != null ? entranceHologramId.toString() : null);
+        cfg.set("chestHologramId", chestHologramId != null ? chestHologramId.toString() : null);
+        cfg.set("droppedArtifactEntityId", droppedArtifactEntityId != null ? droppedArtifactEntityId.toString() : null);
+
+        List<String> placedList = new ArrayList<>(playerPlacedBlocks.size());
+        for (Location loc : playerPlacedBlocks) {
+            placedList.add(loc.getBlockX() + ";" + loc.getBlockY() + ";" + loc.getBlockZ());
+        }
+        cfg.set("playerPlacedBlocks", placedList);
+
+        List<String> extraList = new ArrayList<>(extraPlayerOriginalBlocks.size());
+        for (Map.Entry<Location, BlockData> entry : extraPlayerOriginalBlocks.entrySet()) {
+            Location loc = entry.getKey();
+            extraList.add(loc.getBlockX() + ";" + loc.getBlockY() + ";" + loc.getBlockZ() + ";" + entry.getValue().getAsString());
+        }
+        cfg.set("extraPlayerOriginalBlocks", extraList);
+
+        try {
+            cfg.save(getDynamicStateFile());
+        } catch (IOException e) {
+            plugin.getLogger().warning("[DOOM] Falha ao salvar estado da Fortaleza DOOM: " + e.getMessage());
+        }
+    }
+
+    private void loadDoomState() {
+        File archive = getBlocksArchiveFile();
+        File stateFile = getDynamicStateFile();
+        if (!archive.exists() || !stateFile.exists()) {
+            return;
+        }
+
+        try {
+            String worldName;
+            int loadedOriginX;
+            int loadedBaseY;
+            int loadedOriginZ;
+            DoomVariant loadedVariant = DoomVariant.DOOM_1;
+
+            try (DataInputStream in = new DataInputStream(new BufferedInputStream(new GZIPInputStream(new FileInputStream(archive))))) {
+                worldName = in.readUTF();
+                loadedOriginX = in.readInt();
+                loadedBaseY = in.readInt();
+                loadedOriginZ = in.readInt();
+                try {
+                    loadedVariant = DoomVariant.valueOf(in.readUTF());
+                } catch (IllegalArgumentException ignored) {
+                }
+
+                World world = Bukkit.getWorld(worldName);
+                if (world == null) {
+                    deleteSavedState();
+                    return;
+                }
+
+                int paletteSize = in.readInt();
+                List<BlockData> palette = new ArrayList<>(paletteSize);
+                for (int i = 0; i < paletteSize; i++) {
+                    palette.add(Bukkit.createBlockData(in.readUTF()));
+                }
+
+                int blockCount = in.readInt();
+                originalBlocks.clear();
+                for (int i = 0; i < blockCount; i++) {
+                    int x = in.readInt();
+                    int y = in.readInt();
+                    int z = in.readInt();
+                    int palIdx = in.readInt();
+                    originalBlocks.put(new Location(world, x, y, z), palette.get(palIdx));
+                }
+
+                this.dungeonWorld = world;
+                this.originX = loadedOriginX;
+                this.baseY = loadedBaseY;
+                this.originZ = loadedOriginZ;
+                this.currentVariant = loadedVariant;
+            }
+
+            YamlConfiguration cfg = YamlConfiguration.loadConfiguration(stateFile);
+            this.gateOpened = cfg.getBoolean("gateOpened", false);
+            this.gateCountdownStarted = cfg.getBoolean("gateCountdownStarted", false);
+            this.gateSecondsRemaining = cfg.getInt("gateSecondsRemaining", GATE_UNLOCK_SECONDS);
+            this.artifactClaimed = cfg.getBoolean("artifactClaimed", false);
+            this.collapseSecondsRemaining = cfg.getInt("collapseSecondsRemaining", 0);
+
+            String entHolo = cfg.getString("entranceHologramId");
+            this.entranceHologramId = (entHolo != null && !entHolo.isBlank()) ? UUID.fromString(entHolo) : null;
+            String chHolo = cfg.getString("chestHologramId");
+            this.chestHologramId = (chHolo != null && !chHolo.isBlank()) ? UUID.fromString(chHolo) : null;
+            String droppedId = cfg.getString("droppedArtifactEntityId");
+            this.droppedArtifactEntityId = (droppedId != null && !droppedId.isBlank()) ? UUID.fromString(droppedId) : null;
+
+            playerPlacedBlocks.clear();
+            for (String s : cfg.getStringList("playerPlacedBlocks")) {
+                String[] parts = s.split(";");
+                if (parts.length == 3) {
+                    playerPlacedBlocks.add(new Location(
+                            dungeonWorld,
+                            Integer.parseInt(parts[0]),
+                            Integer.parseInt(parts[1]),
+                            Integer.parseInt(parts[2])
+                    ));
+                }
+            }
+
+            extraPlayerOriginalBlocks.clear();
+            for (String s : cfg.getStringList("extraPlayerOriginalBlocks")) {
+                String[] parts = s.split(";", 4);
+                if (parts.length == 4) {
+                    Location loc = new Location(
+                            dungeonWorld,
+                            Integer.parseInt(parts[0]),
+                            Integer.parseInt(parts[1]),
+                            Integer.parseInt(parts[2])
+                    );
+                    BlockData data = Bukkit.createBlockData(parts[3]);
+                    extraPlayerOriginalBlocks.put(loc, data);
+                    if (!originalBlocks.containsKey(loc)) {
+                        originalBlocks.put(loc, data);
+                    }
+                }
+            }
+
+            this.entranceLocation = new Location(dungeonWorld, originX + 0.5, baseY + 1, originZ - 2.5);
+            this.chestLocation = new Location(dungeonWorld, originX, baseY + 8, originZ + 238);
+            prepareSpawnerList();
+
+            int minChunkX = (originX - HALF_WIDTH - 2) >> 4;
+            int maxChunkX = (originX + HALF_WIDTH + 2) >> 4;
+            int minChunkZ = (originZ + MIN_DZ - 3) >> 4;
+            int maxChunkZ = (originZ + MAX_DZ + 2) >> 4;
+            for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+                for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                    Chunk chunk = dungeonWorld.getChunkAt(cx, cz);
+                    chunk.addPluginChunkTicket(plugin);
+                    ticketedChunks.add(chunkKey(cx, cz));
+                }
+            }
+
+            this.generating = false;
+            this.active = true;
+            plugin.getLogger().info("[DOOM] " + currentVariant.getFullTitle()
+                    + " restaurada da sessao anterior em X=" + originX + ", Y=" + baseY + ", Z=" + originZ
+                    + " (" + originalBlocks.size() + " blocos rastreados).");
+        } catch (Exception e) {
+            plugin.getLogger().warning("[DOOM] Falha ao carregar Fortaleza DOOM salva: " + e.getMessage());
+            originalBlocks.clear();
+            playerPlacedBlocks.clear();
+            extraPlayerOriginalBlocks.clear();
+            deleteSavedState();
+        }
+    }
+
+    private void deleteSavedState() {
+        File archive = getBlocksArchiveFile();
+        if (archive.exists()) {
+            archive.delete();
+        }
+        File stateFile = getDynamicStateFile();
+        if (stateFile.exists()) {
+            stateFile.delete();
+        }
     }
 }
