@@ -378,7 +378,6 @@ public class DoomListener implements Listener {
 
             if (doomManager.pickupArtifactFromChest(player, team)) {
                 event.setCurrentItem(null);
-                player.closeInventory();
             }
             return;
         }
