@@ -21,155 +21,125 @@ public final class DoomVariantArchitect {
     public static void populateVariantSpawners(DoomManager.DoomVariant variant, List<DoomManager.SpawnerPoint> spawnerPoints) {
         spawnerPoints.clear();
         if (variant == DoomManager.DoomVariant.DOOM_2) {
-            // DOOM 2: Abismo Corrompido (Sculk, Dark Prismarine, Strays, Drowned, Wither Skeletons, Vindicators, Blazes)
-            // Sala 1: Trincheiras Abissais (6 spawners)
+            // DOOM 2: Abismo Corrompido
+            // Sala 1: Trincheiras Abissais
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 2, 7, EntityType.DROWNED));
             spawnerPoints.add(new DoomManager.SpawnerPoint(13, 2, 7, EntityType.DROWNED));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 13, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 2, 18, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(13, 2, 18, EntityType.STRAY));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 19, EntityType.VINDICATOR));
 
-            // Sala 2: Parkour Zigue-Zague Abissal (4 spawners)
+            // Sala 2: Parkour Zigue-Zague Abissal
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 36, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 36, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 46, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 46, EntityType.BLAZE));
 
-            // Sala 3: Labirinto Concentrico de Aneis (8 spawners)
+            // Sala 3: Labirinto Concentrico de Aneis
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 2, 64, EntityType.CAVE_SPIDER));
             spawnerPoints.add(new DoomManager.SpawnerPoint(13, 2, 64, EntityType.CAVE_SPIDER));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-7, 2, 67, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(7, 2, 67, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 69, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-7, 2, 73, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(7, 2, 73, EntityType.STRAY));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 74, EntityType.WITHER_SKELETON));
 
-            // Sala 4: Passarelas de Barreiras (4 spawners)
+            // Sala 4: Passarelas de Barreiras
             spawnerPoints.add(new DoomManager.SpawnerPoint(-8, 5, 88, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(8, 5, 88, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 5, 88, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 5, 93, EntityType.BLAZE));
 
-            // Sala 5: Pantano das Almas & Pilares de Basalto (6 spawners)
+            // Sala 5: Pantano das Almas & Pilares de Basalto
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 2, 108, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(13, 2, 108, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 113, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 2, 118, EntityType.CAVE_SPIDER));
             spawnerPoints.add(new DoomManager.SpawnerPoint(13, 2, 118, EntityType.CAVE_SPIDER));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 119, EntityType.STRAY));
 
-            // Sala 6: Parkour da Ampulheta (4 spawners)
+            // Sala 6: Parkour da Ampulheta
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 7, 136, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 7, 136, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 7, 144, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 7, 144, EntityType.BLAZE));
 
-            // Sala 7: Camara dos Cristais de Ametista (6 spawners)
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-14, 2, 160, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(14, 2, 160, EntityType.VINDICATOR));
+            // Sala 7: Camara dos Cristais de Ametista
             spawnerPoints.add(new DoomManager.SpawnerPoint(-7, 2, 165, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(7, 2, 165, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-14, 2, 170, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(14, 2, 170, EntityType.STRAY));
 
-            // Sala 8: Parkour das Gaiolas Suspensas (4 spawners)
+            // Sala 8: Parkour das Gaiolas Suspensas
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 186, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 186, EntityType.STRAY));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 194, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 194, EntityType.BLAZE));
 
-            // Sala 9: Panteao dos Guardioes Abissais (6 spawners)
+            // Sala 9: Panteao dos Guardioes Abissais
             spawnerPoints.add(new DoomManager.SpawnerPoint(-14, 6, 210, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(14, 6, 210, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 6, 215, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-14, 6, 221, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(14, 6, 221, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 6, 222, EntityType.STRAY));
 
-            // Sala 10: Santuario Abissal DOOM II (6 spawners)
+            // Sala 10: Santuario Abissal DOOM II
             spawnerPoints.add(new DoomManager.SpawnerPoint(-11, 6, 231, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(11, 6, 231, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-7, 6, 235, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(7, 6, 235, EntityType.BLAZE));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-11, 6, 239, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(11, 6, 239, EntityType.VINDICATOR));
         } else {
             // DOOM 3: Templo do Sol Sangrento (Bastiao Dourado & Carmesim)
-            // Sala 1: Patio das Legioes Carmesins (6 spawners)
+            // Sala 1: Patio das Legioes Carmesins
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 2, 7, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(13, 2, 7, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 3, 12, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 2, 18, EntityType.HUSK));
             spawnerPoints.add(new DoomManager.SpawnerPoint(13, 2, 18, EntityType.HUSK));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 19, EntityType.BLAZE));
 
-            // Sala 2: Parkour das Passarelas Cruzadas em X (4 spawners)
+            // Sala 2: Parkour das Passarelas Cruzadas em X
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 36, EntityType.SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 36, EntityType.SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 46, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 46, EntityType.BLAZE));
 
-            // Sala 3: Labirinto das Celas de Sangue (8 spawners)
+            // Sala 3: Labirinto das Celas de Sangue
             spawnerPoints.add(new DoomManager.SpawnerPoint(-12, 2, 64, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(12, 2, 64, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 64, EntityType.CAVE_SPIDER));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-12, 2, 69, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(12, 2, 69, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 69, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-12, 2, 73, EntityType.HUSK));
             spawnerPoints.add(new DoomManager.SpawnerPoint(12, 2, 73, EntityType.HUSK));
 
-            // Sala 4: Vigas Douradas sobre Fornalhas (4 spawners)
+            // Sala 4: Vigas Douradas sobre Fornalhas
             spawnerPoints.add(new DoomManager.SpawnerPoint(-9, 5, 88, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(9, 5, 88, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-9, 5, 93, EntityType.SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(9, 5, 93, EntityType.SKELETON));
 
-            // Sala 5: Arena dos Gladiadores (6 spawners)
+            // Sala 5: Arena dos Gladiadores
             spawnerPoints.add(new DoomManager.SpawnerPoint(-10, 2, 108, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(10, 2, 108, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 113, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-10, 2, 118, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(10, 2, 118, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 119, EntityType.BLAZE));
 
-            // Sala 6: Parkour das Piramides Flutuantes (4 spawners)
+            // Sala 6: Parkour das Piramides Flutuantes
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 7, 136, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 7, 136, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 7, 144, EntityType.SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 7, 144, EntityType.SKELETON));
 
-            // Sala 7: Aqueduto de Lava & Passarelas (6 spawners)
+            // Sala 7: Aqueduto de Lava & Passarelas
             spawnerPoints.add(new DoomManager.SpawnerPoint(-14, 2, 160, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(14, 2, 160, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 165, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-14, 2, 170, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(14, 2, 170, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 2, 171, EntityType.BLAZE));
 
-            // Sala 8: Parkour dos Portais de Fogo (4 spawners)
+            // Sala 8: Parkour dos Portais de Fogo
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 186, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 186, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-17, 6, 194, EntityType.SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(17, 6, 194, EntityType.SKELETON));
 
-            // Sala 9: Salao Real dos Centurioes (6 spawners)
+            // Sala 9: Salao Real dos Centurioes
             spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 6, 210, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(13, 6, 210, EntityType.WITHER_SKELETON));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(0, 6, 215, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-13, 6, 221, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(13, 6, 221, EntityType.VINDICATOR));
             spawnerPoints.add(new DoomManager.SpawnerPoint(0, 6, 222, EntityType.BLAZE));
 
-            // Sala 10: Santuario do Sol Sangrento DOOM III (6 spawners)
+            // Sala 10: Santuario do Sol Sangrento DOOM III
             spawnerPoints.add(new DoomManager.SpawnerPoint(-11, 6, 231, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(11, 6, 231, EntityType.WITHER_SKELETON));
             spawnerPoints.add(new DoomManager.SpawnerPoint(-7, 6, 235, EntityType.BLAZE));
             spawnerPoints.add(new DoomManager.SpawnerPoint(7, 6, 235, EntityType.BLAZE));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(-11, 6, 239, EntityType.VINDICATOR));
-            spawnerPoints.add(new DoomManager.SpawnerPoint(11, 6, 239, EntityType.VINDICATOR));
         }
     }
 

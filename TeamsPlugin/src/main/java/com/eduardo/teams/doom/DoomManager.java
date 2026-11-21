@@ -503,79 +503,66 @@ public class DoomManager {
             return;
         }
         spawnerPoints.clear();
-        // Sala 1: Patio da Carnificina (6 spawners)
+        // Sala 1: Patio da Carnificina
         spawnerPoints.add(new SpawnerPoint(-13, 2, 7, EntityType.HUSK));
         spawnerPoints.add(new SpawnerPoint(13, 2, 7, EntityType.HUSK));
         spawnerPoints.add(new SpawnerPoint(0, 2, 13, EntityType.WITHER_SKELETON));
         spawnerPoints.add(new SpawnerPoint(-13, 2, 18, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(13, 2, 18, EntityType.SKELETON));
-        spawnerPoints.add(new SpawnerPoint(0, 2, 19, EntityType.VINDICATOR));
 
-        // Sala 2: Abismo das Almas - Torres laterais sobre o Parkour (4 spawners)
+        // Sala 2: Abismo das Almas - Torres laterais sobre o Parkour
         spawnerPoints.add(new SpawnerPoint(-17, 6, 36, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(17, 6, 36, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(-17, 6, 46, EntityType.BLAZE));
         spawnerPoints.add(new SpawnerPoint(17, 6, 46, EntityType.BLAZE));
 
-        // Sala 3: Labirinto das Sombras (8 spawners)
+        // Sala 3: Labirinto das Sombras
         spawnerPoints.add(new SpawnerPoint(-14, 2, 65, EntityType.CAVE_SPIDER));
         spawnerPoints.add(new SpawnerPoint(14, 2, 65, EntityType.CAVE_SPIDER));
         spawnerPoints.add(new SpawnerPoint(-7, 2, 65, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(7, 2, 65, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(0, 2, 68, EntityType.VINDICATOR));
         spawnerPoints.add(new SpawnerPoint(-7, 2, 73, EntityType.HUSK));
         spawnerPoints.add(new SpawnerPoint(7, 2, 73, EntityType.HUSK));
         spawnerPoints.add(new SpawnerPoint(0, 2, 74, EntityType.BLAZE));
 
-        // Sala 4: Pontes do Julgamento (4 spawners)
+        // Sala 4: Pontes do Julgamento
         spawnerPoints.add(new SpawnerPoint(-5, 5, 88, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(5, 5, 88, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(-5, 5, 93, EntityType.BLAZE));
         spawnerPoints.add(new SpawnerPoint(5, 5, 93, EntityType.BLAZE));
 
-        // Sala 5: Catacumbas Congeladas (6 spawners)
+        // Sala 5: Catacumbas Congeladas
         spawnerPoints.add(new SpawnerPoint(-13, 2, 108, EntityType.STRAY));
         spawnerPoints.add(new SpawnerPoint(13, 2, 108, EntityType.STRAY));
         spawnerPoints.add(new SpawnerPoint(0, 2, 113, EntityType.WITHER_SKELETON));
         spawnerPoints.add(new SpawnerPoint(-13, 2, 118, EntityType.STRAY));
         spawnerPoints.add(new SpawnerPoint(13, 2, 118, EntityType.STRAY));
-        spawnerPoints.add(new SpawnerPoint(0, 2, 119, EntityType.VINDICATOR));
 
-        // Sala 6: Espiral do Vacuo (4 spawners nas passarelas suspensas)
+        // Sala 6: Espiral do Vacuo
         spawnerPoints.add(new SpawnerPoint(-17, 7, 136, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(17, 7, 136, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(-17, 7, 144, EntityType.BLAZE));
         spawnerPoints.add(new SpawnerPoint(17, 7, 144, EntityType.BLAZE));
 
-        // Sala 7: Forja Infernal (6 spawners ao redor das fornalhas de lava)
+        // Sala 7: Forja Infernal
         spawnerPoints.add(new SpawnerPoint(-14, 2, 160, EntityType.BLAZE));
         spawnerPoints.add(new SpawnerPoint(14, 2, 160, EntityType.BLAZE));
         spawnerPoints.add(new SpawnerPoint(-6, 2, 165, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(6, 2, 165, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(-14, 2, 170, EntityType.VINDICATOR));
-        spawnerPoints.add(new SpawnerPoint(14, 2, 170, EntityType.VINDICATOR));
 
-        // Sala 8: Pendulos da Morte (4 spawners)
+        // Sala 8: Pendulos da Morte
         spawnerPoints.add(new SpawnerPoint(-17, 6, 186, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(17, 6, 186, EntityType.SKELETON));
         spawnerPoints.add(new SpawnerPoint(-17, 6, 194, EntityType.BLAZE));
         spawnerPoints.add(new SpawnerPoint(17, 6, 194, EntityType.BLAZE));
 
-        // Sala 9: Coliseu dos Campeoes (6 spawners no anfiteatro)
+        // Sala 9: Coliseu dos Campeoes
         spawnerPoints.add(new SpawnerPoint(-14, 6, 210, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(14, 6, 210, EntityType.WITHER_SKELETON));
-        spawnerPoints.add(new SpawnerPoint(0, 6, 215, EntityType.VINDICATOR));
-        spawnerPoints.add(new SpawnerPoint(-14, 6, 221, EntityType.VINDICATOR));
-        spawnerPoints.add(new SpawnerPoint(14, 6, 221, EntityType.VINDICATOR));
         spawnerPoints.add(new SpawnerPoint(0, 6, 222, EntityType.BLAZE));
 
-        // Sala 10: Santuario do DOOM (6 spawners de elite ao redor do Bau Final)
+        // Sala 10: Santuario do DOOM
         spawnerPoints.add(new SpawnerPoint(-11, 6, 231, EntityType.WITHER_SKELETON));
         spawnerPoints.add(new SpawnerPoint(11, 6, 231, EntityType.WITHER_SKELETON));
         spawnerPoints.add(new SpawnerPoint(-7, 6, 235, EntityType.BLAZE));
         spawnerPoints.add(new SpawnerPoint(7, 6, 235, EntityType.BLAZE));
-        spawnerPoints.add(new SpawnerPoint(-11, 6, 239, EntityType.VINDICATOR));
-        spawnerPoints.add(new SpawnerPoint(11, 6, 239, EntityType.VINDICATOR));
     }
 
     private void startSlicedBuild(CommandSender initiator) {

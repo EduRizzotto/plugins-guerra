@@ -64,8 +64,12 @@ public class DoomListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        Location loc = event.getBlock().getLocation();
+        Block block = event.getBlock();
+        Location loc = block.getLocation();
         if (!doomManager.isProtectedLocation(loc)) {
+            return;
+        }
+        if (block.getType() == Material.FIRE) {
             return;
         }
         if (doomManager.isPlayerPlacedBlock(loc)) {
@@ -74,6 +78,24 @@ public class DoomListener implements Listener {
         }
         event.setCancelled(true);
         event.getPlayer().sendMessage(Component.text("Você não pode destruir blocos da estrutura da Fortaleza DOOM!", NamedTextColor.RED));
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onExtinguishFireInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.LEFT_CLICK_BLOCK || event.getClickedBlock() == null) {
+            return;
+        }
+        Block clicked = event.getClickedBlock();
+        if (clicked.getType() == Material.FIRE && doomManager.isProtectedLocation(clicked.getLocation())) {
+            clicked.setType(Material.AIR, false);
+            clicked.getWorld().playSound(clicked.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7f, 1.2f);
+            return;
+        }
+        Block adjacent = clicked.getRelative(event.getBlockFace());
+        if (adjacent.getType() == Material.FIRE && doomManager.isProtectedLocation(adjacent.getLocation())) {
+            adjacent.setType(Material.AIR, false);
+            adjacent.getWorld().playSound(adjacent.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 0.7f, 1.2f);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -118,7 +140,7 @@ public class DoomListener implements Listener {
     }
 
     private boolean canOverwriteBlock(Location loc, Material replacedType) {
-        if (replacedType.isAir() || doomManager.isPlayerPlacedBlock(loc)) {
+        if (replacedType.isAir() || replacedType == Material.FIRE || doomManager.isPlayerPlacedBlock(loc)) {
             return true;
         }
         // Na borda externa fora do interior da dungeon, permite cobrir grama/neve natural
@@ -204,6 +226,9 @@ public class DoomListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockFade(BlockFadeEvent event) {
+        if (event.getBlock().getType() == Material.FIRE) {
+            return;
+        }
         if (doomManager.isProtectedLocation(event.getBlock().getLocation())) {
             event.setCancelled(true);
         }
