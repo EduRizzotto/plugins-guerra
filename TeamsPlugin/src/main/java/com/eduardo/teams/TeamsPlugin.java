@@ -3,6 +3,9 @@ package com.eduardo.teams;
 import com.eduardo.teams.airdrop.AirDropCommand;
 import com.eduardo.teams.airdrop.AirDropListener;
 import com.eduardo.teams.airdrop.AirDropManager;
+import com.eduardo.teams.base.BaseCommand;
+import com.eduardo.teams.base.BaseListener;
+import com.eduardo.teams.base.BaseManager;
 import com.eduardo.teams.board.PlacarCommand;
 import com.eduardo.teams.board.WallBoardListener;
 import com.eduardo.teams.board.WallBoardManager;
@@ -68,6 +71,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private DimensionLockManager dimensionLockManager;
     private KitManager kitManager;
     private ZoneManager zoneManager;
+    private BaseManager baseManager;
 
     @Override
     public void onEnable() {
@@ -119,6 +123,9 @@ public final class TeamsPlugin extends JavaPlugin {
         this.zoneManager = new ZoneManager(this);
         ZoneCommand protegerCommand = new ZoneCommand(this.zoneManager, false);
         ZoneCommand safezoneCommand = new ZoneCommand(this.zoneManager, true);
+
+        this.baseManager = new BaseManager(this);
+        BaseCommand baseCommand = new BaseCommand(this.baseManager, this.teamManager);
 
         PluginCommand cmd = getCommand("team");
         if (cmd != null) {
@@ -226,6 +233,12 @@ public final class TeamsPlugin extends JavaPlugin {
             safezoneCmd.setTabCompleter(safezoneCommand);
         }
 
+        PluginCommand baseCmd = getCommand("base");
+        if (baseCmd != null) {
+            baseCmd.setExecutor(baseCommand);
+            baseCmd.setTabCompleter(baseCommand);
+        }
+
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);
         hornListener.setQuestManager(this.questManager);
 
@@ -247,6 +260,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new DimensionLockListener(this.dimensionLockManager), this);
         pm.registerEvents(new KitListener(this.kitManager, kitGui), this);
         pm.registerEvents(new ZoneListener(this.zoneManager), this);
+        pm.registerEvents(new BaseListener(this, this.baseManager, this.teamManager), this);
         pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
@@ -309,6 +323,9 @@ public final class TeamsPlugin extends JavaPlugin {
         }
         if (this.zoneManager != null) {
             this.zoneManager.saveZones();
+        }
+        if (this.baseManager != null) {
+            this.baseManager.saveBases();
         }
         getLogger().info("TeamsPlugin desativado e dados salvos.");
     }

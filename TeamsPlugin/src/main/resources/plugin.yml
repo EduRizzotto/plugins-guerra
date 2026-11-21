@@ -70,6 +70,9 @@ commands:
     description: Bloqueia colocar blocos, quebrar blocos e PvP em uma area por coordenadas (estilo /fill).
     aliases: [zonasegura, protegerpvp]
     usage: /safezone <x1> <y1> <z1> <x2> <y2> <z2> [nome] | listar | remover <nome> | limpar
+  base:
+    description: Cria ou remove a base protegida do time (30 blocos para cada lado, sem lava e limite de 5 TNTs por time).
+    usage: /base <criar|remover|info>
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
