@@ -7,7 +7,7 @@ description: Sistema completo de gerenciamento de times com GUI, Simple Voice Ch
 commands:
   team:
     description: Gerencia times, abre o painel interativo ou gerencia placares (/team placar).
-    usage: /team [create|list|members|leader|tag|color|invite|accept|kick|tell|leave|disband|placar]
+    usage: /team [create|list|members|leader|tag|color|invite|accept|kick|tell|leave|disband|points|placar]
   placar:
     description: Obtém as molduras exclusivas de placar de parede e gerencia os placares do lobby.
     aliases: [placares, ranking, leaderboard]

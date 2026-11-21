@@ -15,8 +15,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,7 +30,7 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
             "create", "list", "members", "leader", "tag",
-            "color", "invite", "accept", "kick", "tell", "leave", "disband", "quest"
+            "color", "invite", "accept", "kick", "tell", "leave", "disband", "quest", "points"
     );
 
     private final TeamManager teamManager;
@@ -45,10 +43,10 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(
-            @NotNull CommandSender sender,
-            @NotNull Command command,
-            @NotNull String label,
-            @NotNull String[] args
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
     ) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(Component.text("Este comando so pode ser utilizado por jogadores.", NamedTextColor.RED));
@@ -75,6 +73,7 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
             case "tell" -> handleTell(player, args);
             case "leave" -> handleLeave(player);
             case "disband" -> handleDisband(player);
+            case "points", "pontos", "pts" -> handlePoints(player, args);
             case "quest", "quests", "missoes", "missao" -> teamGui.openQuestsMenu(player);
             case "gui", "menu" -> teamGui.openMainMenu(player);
             default -> sendHelp(player);
@@ -488,6 +487,95 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
         teamManager.disbandTeam(team);
     }
 
+    public void handlePoints(Player player, String[] args) {
+        if (!player.isOp() && !player.hasPermission("teams.admin")) {
+            player.sendMessage(Component.text("Apenas operadores (OP) podem alterar os pontos de uma equipe!", NamedTextColor.RED));
+            return;
+        }
+
+        if (args.length < 2) {
+            player.sendMessage(Component.text("Uso: /team points <qtd> (seu time) ou /team points <time> <qtd>", NamedTextColor.YELLOW));
+            return;
+        }
+
+        Team targetTeam;
+        int newPoints;
+        String mode = "set";
+
+        if (args.length == 2) {
+            // /team points <qtd> -> Altera os pontos do time atual do OP
+            targetTeam = teamManager.getPlayerTeam(player.getUniqueId());
+            if (targetTeam == null) {
+                player.sendMessage(Component.text("Você não está em um time! Use: /team points <nomeDoTime> <qtd>", NamedTextColor.RED));
+                return;
+            }
+            try {
+                newPoints = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                player.sendMessage(Component.text("Quantidade inválida! Use: /team points <qtd> ou /team points <time> <qtd>", NamedTextColor.RED));
+                return;
+            }
+        } else if (args.length >= 4 && (args[1].equalsIgnoreCase("set") || args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("remove"))) {
+            // /team points <set|add|remove> <time> <qtd>
+            mode = args[1].toLowerCase(Locale.ROOT);
+            targetTeam = teamManager.getTeamByName(args[2]);
+            if (targetTeam == null) {
+                player.sendMessage(Component.text("Time '" + args[2] + "' não encontrado!", NamedTextColor.RED));
+                return;
+            }
+            try {
+                newPoints = Integer.parseInt(args[3]);
+            } catch (NumberFormatException e) {
+                player.sendMessage(Component.text("Quantidade de pontos inválida: '" + args[3] + "'!", NamedTextColor.RED));
+                return;
+            }
+        } else {
+            // /team points <time> <qtd> OU /team points <qtd> <time>
+            Team byFirst = teamManager.getTeamByName(args[1]);
+            if (byFirst != null) {
+                targetTeam = byFirst;
+                try {
+                    newPoints = Integer.parseInt(args[2]);
+                } catch (NumberFormatException e) {
+                    player.sendMessage(Component.text("Quantidade de pontos inválida: '" + args[2] + "'!", NamedTextColor.RED));
+                    return;
+                }
+            } else {
+                Team bySecond = teamManager.getTeamByName(args[2]);
+                if (bySecond == null) {
+                    player.sendMessage(Component.text("Time '" + args[1] + "' não encontrado!", NamedTextColor.RED));
+                    return;
+                }
+                targetTeam = bySecond;
+                try {
+                    newPoints = Integer.parseInt(args[1]);
+                } catch (NumberFormatException e) {
+                    player.sendMessage(Component.text("Quantidade de pontos inválida: '" + args[1] + "'!", NamedTextColor.RED));
+                    return;
+                }
+            }
+        }
+
+        int oldPoints = targetTeam.getPoints();
+        switch (mode) {
+            case "add" -> targetTeam.setPoints(oldPoints + newPoints);
+            case "remove" -> targetTeam.setPoints(Math.max(0, oldPoints - newPoints));
+            default -> targetTeam.setPoints(Math.max(0, newPoints));
+        }
+        teamManager.saveTeams();
+
+        player.sendMessage(
+                Component.text("⭐ Pontos da equipe ", NamedTextColor.GREEN)
+                        .append(targetTeam.getFormattedTag())
+                        .append(Component.text(" " + targetTeam.getName(), NamedTextColor.GOLD, TextDecoration.BOLD))
+                        .append(Component.text(" alterados de ", NamedTextColor.GREEN))
+                        .append(Component.text(oldPoints + " pts", NamedTextColor.GRAY))
+                        .append(Component.text(" para ", NamedTextColor.GREEN))
+                        .append(Component.text(targetTeam.getPoints() + " pts", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                        .append(Component.text("!", NamedTextColor.GREEN))
+        );
+    }
+
     private void sendHelp(Player player) {
         player.sendMessage(Component.text("=== Comandos do Sistema de Times ===", NamedTextColor.GOLD));
         player.sendMessage(Component.text("/team ", NamedTextColor.YELLOW).append(Component.text("- Abre o painel interativo (GUI)", NamedTextColor.GRAY)));
@@ -527,11 +615,11 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public @Nullable List<String> onTabComplete(
-            @NotNull CommandSender sender,
-            @NotNull Command command,
-            @NotNull String label,
-            @NotNull String[] args
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] args
     ) {
         if (!(sender instanceof Player player)) {
             return List.of();
@@ -540,8 +628,10 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
             boolean canCreate = teamManager.canCreateTeam(player);
+            boolean isAdmin = player.isOp() || player.hasPermission("teams.admin");
             return SUBCOMMANDS.stream()
                     .filter(s -> canCreate || !s.equals("create"))
+                    .filter(s -> isAdmin || !s.equals("points"))
                     .filter(s -> s.startsWith(prefix))
                     .toList();
         }
@@ -558,6 +648,23 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
                         .map(Team::getName)
                         .filter(n -> n.toLowerCase(Locale.ROOT).startsWith(prefix))
                         .toList();
+                case "points", "pontos", "pts" -> {
+                    if (!player.isOp() && !player.hasPermission("teams.admin")) {
+                        yield List.of();
+                    }
+                    List<String> suggestions = new ArrayList<>();
+                    for (Team t : teamManager.getAllTeams()) {
+                        if (t.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                            suggestions.add(t.getName());
+                        }
+                    }
+                    for (String num : List.of("100", "200", "500", "1000", "0")) {
+                        if (num.startsWith(prefix)) {
+                            suggestions.add(num);
+                        }
+                    }
+                    yield suggestions;
+                }
                 case "invite" -> Bukkit.getOnlinePlayers().stream()
                         .filter(p -> !p.getUniqueId().equals(player.getUniqueId()))
                         .filter(p -> teamManager.getPlayerTeam(p.getUniqueId()) == null)
@@ -587,6 +694,15 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
                 }
                 default -> List.of();
             };
+        }
+
+        if (args.length == 3 && (args[0].equalsIgnoreCase("points") || args[0].equalsIgnoreCase("pontos") || args[0].equalsIgnoreCase("pts"))) {
+            if (player.isOp() || player.hasPermission("teams.admin")) {
+                String prefix = args[2].toLowerCase(Locale.ROOT);
+                return List.of("0", "100", "200", "500", "1000").stream()
+                        .filter(n -> n.startsWith(prefix))
+                        .toList();
+            }
         }
 
         return List.of();
