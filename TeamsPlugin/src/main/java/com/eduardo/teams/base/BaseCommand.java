@@ -1,6 +1,7 @@
 package com.eduardo.teams.base;
 
 import com.eduardo.teams.base.BaseManager.TeamBase;
+import com.eduardo.teams.base.BaseManager.TntQuota;
 import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
 import net.kyori.adventure.text.Component;
@@ -98,7 +99,7 @@ public class BaseCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(Component.text(" • Área protegida (30 blocos para cada lado): ", NamedTextColor.GRAY)
                 .append(Component.text("X [" + created.getMinX() + " até " + created.getMaxX() + "] | Z [" + created.getMinZ() + " até " + created.getMaxZ() + "]", NamedTextColor.AQUA)));
         player.sendMessage(Component.text(" • Regras da Base: ", NamedTextColor.GOLD)
-                .append(Component.text("Proibido colocar lava | Máx. 5 TNTs por time | Blocos normais liberados.", NamedTextColor.YELLOW)));
+                .append(Component.text("Proibido colocar lava | Máx. 5 TNTs por time a cada 3 dias | Blocos normais liberados.", NamedTextColor.YELLOW)));
         player.sendMessage(Component.empty());
     }
 
@@ -154,15 +155,19 @@ public class BaseCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(Component.text(" • Área (30 blocos p/ cada lado): ", NamedTextColor.GRAY)
                 .append(Component.text("X [" + targetBase.getMinX() + ".." + targetBase.getMaxX() + "], Z [" + targetBase.getMinZ() + ".." + targetBase.getMaxZ() + "]", NamedTextColor.AQUA)));
 
-        Map<String, Integer> tntMap = targetBase.getTntUsedByTeam();
+        Map<String, TntQuota> tntMap = targetBase.getActiveTntQuotas();
         if (tntMap.isEmpty()) {
-            player.sendMessage(Component.text(" • TNTs usadas nesta base: ", NamedTextColor.GRAY)
+            player.sendMessage(Component.text(" • TNTs usadas nesta base (ciclo de 3 dias): ", NamedTextColor.GRAY)
                     .append(Component.text("Nenhuma (0/" + BaseManager.MAX_TNT_PER_TEAM + ")", NamedTextColor.GREEN)));
         } else {
-            player.sendMessage(Component.text(" • TNTs usadas por time (Máx. " + BaseManager.MAX_TNT_PER_TEAM + "):", NamedTextColor.GRAY));
-            for (Map.Entry<String, Integer> entry : tntMap.entrySet()) {
+            long now = System.currentTimeMillis();
+            player.sendMessage(Component.text(" • TNTs usadas por time (Máx. " + BaseManager.MAX_TNT_PER_TEAM + " a cada 3 dias):", NamedTextColor.GRAY));
+            for (Map.Entry<String, TntQuota> entry : tntMap.entrySet()) {
+                TntQuota quota = entry.getValue();
+                String resetIn = BaseManager.formatDuration(quota.getRemainingMs(now));
                 player.sendMessage(Component.text("   - " + entry.getKey() + ": ", NamedTextColor.YELLOW)
-                        .append(Component.text(entry.getValue() + "/" + BaseManager.MAX_TNT_PER_TEAM + " TNTs", NamedTextColor.RED, TextDecoration.BOLD)));
+                        .append(Component.text(quota.getCount() + "/" + BaseManager.MAX_TNT_PER_TEAM + " TNTs", NamedTextColor.RED, TextDecoration.BOLD))
+                        .append(Component.text(" (reseta em " + resetIn + ")", NamedTextColor.GRAY)));
             }
         }
     }

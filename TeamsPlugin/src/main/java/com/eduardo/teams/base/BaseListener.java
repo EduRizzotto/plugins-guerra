@@ -150,11 +150,13 @@ public class BaseListener implements Listener {
         int used = base.getTntUsed(playerTeam.getName());
         if (used >= BaseManager.MAX_TNT_PER_TEAM) {
             event.setCancelled(true);
+            String remaining = BaseManager.formatDuration(base.getRemainingResetMs(playerTeam.getName()));
             player.sendMessage(Component.text("💣 Limite atingido! Seu time já usou as ", NamedTextColor.RED)
                     .append(Component.text(BaseManager.MAX_TNT_PER_TEAM + "/" + BaseManager.MAX_TNT_PER_TEAM + " TNTs", NamedTextColor.GOLD, TextDecoration.BOLD))
-                    .append(Component.text(" permitidas na base de ", NamedTextColor.RED))
+                    .append(Component.text(" (a cada 3 dias) na base de ", NamedTextColor.RED))
                     .append(Component.text(base.getTeamDisplayName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
-                    .append(Component.text("!", NamedTextColor.RED)));
+                    .append(Component.text("! Reseta em: ", NamedTextColor.RED))
+                    .append(Component.text(remaining, NamedTextColor.AQUA, TextDecoration.BOLD)));
             return;
         }
 
@@ -166,7 +168,7 @@ public class BaseListener implements Listener {
                 .append(Component.text(base.getTeamDisplayName(), NamedTextColor.GOLD, TextDecoration.BOLD))
                 .append(Component.text("! (", NamedTextColor.YELLOW))
                 .append(Component.text(nowUsed + "/" + BaseManager.MAX_TNT_PER_TEAM, NamedTextColor.RED, TextDecoration.BOLD))
-                .append(Component.text(" TNTs usadas pelo seu time)", NamedTextColor.YELLOW)));
+                .append(Component.text(" TNTs usadas pelo seu time neste ciclo de 3 dias)", NamedTextColor.YELLOW)));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
