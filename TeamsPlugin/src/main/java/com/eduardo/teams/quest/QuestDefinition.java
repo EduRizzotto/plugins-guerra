@@ -136,18 +136,6 @@ public class QuestDefinition {
                 Material.EMERALD_ORE, QuestDifficulty.MEDIUM, QuestActionType.MINE_BLOCK, 5,
                 Material.EMERALD_ORE, Material.DEEPSLATE_EMERALD_ORE);
 
-        regMat("q010", "Relíquias do Abismo", "Minerar 2 blocos de Detritos Ancestrais no Nether.",
-                Material.ANCIENT_DEBRIS, QuestDifficulty.HARD, QuestActionType.MINE_BLOCK, 2,
-                Material.ANCIENT_DEBRIS);
-
-        regMat("q011", "Quartzo Infernal", "Minerar 32 minérios de Quartzo do Nether.",
-                Material.NETHER_QUARTZ_ORE, QuestDifficulty.EASY, QuestActionType.MINE_BLOCK, 32,
-                Material.NETHER_QUARTZ_ORE);
-
-        regMat("q012", "Pepitas do Inferno", "Minerar 32 minérios de Ouro do Nether.",
-                Material.NETHER_GOLD_ORE, QuestDifficulty.EASY, QuestActionType.MINE_BLOCK, 32,
-                Material.NETHER_GOLD_ORE);
-
         regMat("q013", "Rocha Indestrutível", "Quebrar 12 blocos de Obsidiana.",
                 Material.OBSIDIAN, QuestDifficulty.MEDIUM, QuestActionType.MINE_BLOCK, 12,
                 Material.OBSIDIAN, Material.CRYING_OBSIDIAN);
@@ -167,10 +155,6 @@ public class QuestDefinition {
         regMat("q017", "Madeira Densa", "Cortar 48 troncos de Carvalho Escuro, Acácia ou Selva.",
                 Material.DARK_OAK_LOG, QuestDifficulty.EASY, QuestActionType.MINE_BLOCK, 48,
                 Material.DARK_OAK_LOG, Material.ACACIA_LOG, Material.JUNGLE_LOG, Material.CHERRY_LOG, Material.MANGROVE_LOG);
-
-        regMat("q018", "Lenha Dimensional", "Cortar 48 caules Carmesim ou Distorcidos no Nether.",
-                Material.CRIMSON_STEM, QuestDifficulty.MEDIUM, QuestActionType.MINE_BLOCK, 48,
-                Material.CRIMSON_STEM, Material.WARPED_STEM);
 
         regMat("q019", "Escavação de Areia", "Coletar 96 blocos de Areia ou Areia Vermelha.",
                 Material.SAND, QuestDifficulty.EASY, QuestActionType.MINE_BLOCK, 96,
@@ -200,21 +184,9 @@ public class QuestDefinition {
                 Material.PACKED_ICE, QuestDifficulty.MEDIUM, QuestActionType.MINE_BLOCK, 24,
                 Material.ICE, Material.PACKED_ICE, Material.BLUE_ICE);
 
-        regMat("q026", "Luz do Submundo", "Quebrar 16 blocos de Pedra Luminosa (Glowstone) no Nether.",
-                Material.GLOWSTONE, QuestDifficulty.MEDIUM, QuestActionType.MINE_BLOCK, 16,
-                Material.GLOWSTONE);
-
         regMat("q027", "Diamantes Profundos", "Minerar 6 minérios de Diamante de Ardósia Profunda.",
                 Material.DEEPSLATE_DIAMOND_ORE, QuestDifficulty.HARD, QuestActionType.MINE_BLOCK, 6,
                 Material.DEEPSLATE_DIAMOND_ORE);
-
-        regMat("q028", "Areia das Almas", "Coletar 48 blocos de Areia das Almas ou Terra das Almas.",
-                Material.SOUL_SAND, QuestDifficulty.EASY, QuestActionType.MINE_BLOCK, 48,
-                Material.SOUL_SAND, Material.SOUL_SOIL);
-
-        regMat("q029", "Escavação de Netherrack", "Minerar 200 blocos de Netherrack ou Basalto.",
-                Material.NETHERRACK, QuestDifficulty.EASY, QuestActionType.MINE_BLOCK, 200,
-                Material.NETHERRACK, Material.BASALT, Material.BLACKSTONE);
 
         regMat("q030", "Pedreira de Andesito", "Minerar 64 blocos de Granito, Diorito ou Andesito.",
                 Material.ANDESITE, QuestDifficulty.EASY, QuestActionType.MINE_BLOCK, 64,
@@ -250,9 +222,6 @@ public class QuestDefinition {
 
         regGen("q040", "Chuva de Flechas", "Acertar 10 flechadas em jogadores inimigos.",
                 Material.ARROW, QuestDifficulty.MEDIUM, QuestActionType.PVP_ARROW_HIT, 10);
-
-        regGen("q041", "Confronto Infernal", "Eliminar 1 jogador inimigo dentro do Nether.",
-                Material.NETHER_STAR, QuestDifficulty.HARD, QuestActionType.KILL_ENEMY_NETHER, 1);
 
         regGen("q042", "Emboscada Noturna", "Eliminar 1 jogador inimigo durante a noite no Overworld.",
                 Material.CLOCK, QuestDifficulty.MEDIUM, QuestActionType.KILL_ENEMY_NIGHT, 1);
@@ -307,26 +276,6 @@ public class QuestDefinition {
                 Material.COPPER_INGOT, QuestDifficulty.EASY, QuestActionType.KILL_MOB, 10,
                 EntityType.DROWNED);
 
-        regEnt("q057", "Guardas da Fortaleza", "Matar 5 Esqueletos Wither.",
-                Material.WITHER_SKELETON_SKULL, QuestDifficulty.HARD, QuestActionType.KILL_MOB, 5,
-                EntityType.WITHER_SKELETON);
-
-        regEnt("q058", "Chamas Vivas", "Matar 8 Blazes.",
-                Material.BLAZE_ROD, QuestDifficulty.MEDIUM, QuestActionType.KILL_MOB, 8,
-                EntityType.BLAZE);
-
-        regEnt("q059", "Lágrimas do Nether", "Matar 3 Ghasts.",
-                Material.GHAST_TEAR, QuestDifficulty.HARD, QuestActionType.KILL_MOB, 3,
-                EntityType.GHAST);
-
-        regEnt("q060", "Conflito Dourado", "Matar 10 Piglins, Piglins Bárbaros ou Piglins Zumbificados.",
-                Material.GOLD_NUGGET, QuestDifficulty.MEDIUM, QuestActionType.KILL_MOB, 10,
-                EntityType.PIGLIN, EntityType.PIGLIN_BRUTE, EntityType.ZOMBIFIED_PIGLIN);
-
-        regEnt("q061", "Feras Carmesim", "Matar 5 Hoglins ou Zoglins.",
-                Material.PORKCHOP, QuestDifficulty.MEDIUM, QuestActionType.KILL_MOB, 5,
-                EntityType.HOGLIN, EntityType.ZOGLIN);
-
         regEnt("q062", "Geleia Quente", "Matar 10 Cubos de Magma ou Slimes.",
                 Material.SLIME_BALL, QuestDifficulty.MEDIUM, QuestActionType.KILL_MOB, 10,
                 EntityType.SLIME, EntityType.MAGMA_CUBE);
@@ -358,9 +307,6 @@ public class QuestDefinition {
         regGen("q070", "Purificação pelo Fogo", "Matar 6 monstros hostis enquanto eles estiverem pegando fogo.",
                 Material.FLINT_AND_STEEL, QuestDifficulty.MEDIUM, QuestActionType.KILL_MOB_FIRE, 6);
 
-        regGen("q071", "Caçadores do Submundo", "Matar 12 monstros hostis dentro do Nether.",
-                Material.NETHER_BRICK, QuestDifficulty.MEDIUM, QuestActionType.KILL_MOB_NETHER, 12);
-
         // --- 4. AGRICULTURA, PESCA & CULINARIA ---
         regMat("q072", "Colheita de Trigo", "Colher 48 Trigos maduros.",
                 Material.WHEAT, QuestDifficulty.EASY, QuestActionType.HARVEST_CROP, 48,
@@ -385,10 +331,6 @@ public class QuestDefinition {
         regMat("q077", "Canavial", "Colher 32 Canas-de-Açúcar naturais/crescidas.",
                 Material.SUGAR_CANE, QuestDifficulty.EASY, QuestActionType.HARVEST_CROP, 32,
                 Material.SUGAR_CANE);
-
-        regMat("q078", "Alquimia Agrícola", "Colher 24 Fungos do Nether maduros.",
-                Material.NETHER_WART, QuestDifficulty.MEDIUM, QuestActionType.HARVEST_CROP, 24,
-                Material.NETHER_WART);
 
         regMat("q079", "Churrasco do Clã", "Retirar 32 carnes assadas (Bife, Porco, Frango ou Carneiro) da fornalha/defumador.",
                 Material.COOKED_BEEF, QuestDifficulty.EASY, QuestActionType.SMELT_EXTRACT, 32,
@@ -492,10 +434,6 @@ public class QuestDefinition {
                 Material.TNT, QuestDifficulty.MEDIUM, QuestActionType.CRAFT_ITEM, 4,
                 Material.TNT);
 
-        regMat("q105", "Cofre Dimensional", "Craftar 1 Baú do Ender (Ender Chest).",
-                Material.ENDER_CHEST, QuestDifficulty.HARD, QuestActionType.CRAFT_ITEM, 1,
-                Material.ENDER_CHEST);
-
         regMat("q106", "Altar Arcano", "Craftar 1 Mesa de Encantamentos.",
                 Material.ENCHANTING_TABLE, QuestDifficulty.MEDIUM, QuestActionType.CRAFT_ITEM, 1,
                 Material.ENCHANTING_TABLE);
@@ -529,9 +467,6 @@ public class QuestDefinition {
         regGen("q114", "Travessia a Nado", "Nadar 300 blocos em rios ou oceanos.",
                 Material.WATER_BUCKET, QuestDifficulty.EASY, QuestActionType.TRAVEL_SWIM, 300);
 
-        regGen("q115", "Expedição no Nether", "Percorrer 500 blocos dentro do Nether.",
-                Material.NETHERRACK, QuestDifficulty.MEDIUM, QuestActionType.TRAVEL_NETHER, 500);
-
         regGen("q116", "Fundo do Mundo", "Alcançar a camada Y = -50 ou mais profundo.",
                 Material.COBBLED_DEEPSLATE, QuestDifficulty.EASY, QuestActionType.REACH_LOW_Y, 1);
 
@@ -552,10 +487,6 @@ public class QuestDefinition {
         regMat("q121", "Fundição de Ouro", "Retirar 24 Barras de Ouro fundidas da fornalha ou alto-forno.",
                 Material.GOLD_INGOT, QuestDifficulty.EASY, QuestActionType.SMELT_EXTRACT, 24,
                 Material.GOLD_INGOT);
-
-        regMat("q122", "Refino Ancestral", "Retirar 2 Sucatas de Netherita fundidas da fornalha ou alto-forno.",
-                Material.NETHERITE_SCRAP, QuestDifficulty.HARD, QuestActionType.SMELT_EXTRACT, 2,
-                Material.NETHERITE_SCRAP);
 
         regMat("q123", "Vidro Temperado", "Retirar 32 blocos de Vidro fundidos da fornalha.",
                 Material.GLASS, QuestDifficulty.EASY, QuestActionType.SMELT_EXTRACT, 32,
