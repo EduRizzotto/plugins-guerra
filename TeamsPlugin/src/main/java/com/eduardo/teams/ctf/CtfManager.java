@@ -84,6 +84,7 @@ public class CtfManager {
         private UUID carrierId;
         private String carrierName;
         private String carrierTeamName;
+        private boolean pickedUpInsideOwnBase = false;
 
         private UUID droppedItemEntityId;
         private Location droppedLocation;
@@ -402,15 +403,26 @@ public class CtfManager {
                     .append(Component.newline())
                     .append(Component.text("Inimigos: Clique ou quebre para roubar! (+100 pts)", NamedTextColor.YELLOW));
         } else if (flag.getStatus() == FlagStatus.CARRIED) {
-            text = Component.text("⚠ BANDEIRA DE ", NamedTextColor.RED, TextDecoration.BOLD)
-                    .append(tagComp)
-                    .append(Component.text(" ROUBADA!", NamedTextColor.RED, TextDecoration.BOLD))
-                    .append(Component.newline())
-                    .append(Component.text("Ladrão: " + flag.getCarrierName() + " (" + flag.getCarrierTeamName() + ")", NamedTextColor.YELLOW));
+            boolean ownTeamCarrying = flag.getTeamName().equalsIgnoreCase(flag.getCarrierTeamName());
+            if (ownTeamCarrying) {
+                text = Component.text("🛡 BANDEIRA DE ", NamedTextColor.GREEN, TextDecoration.BOLD)
+                        .append(tagComp)
+                        .append(Component.text(" SENDO RECUPERADA!", NamedTextColor.GREEN, TextDecoration.BOLD))
+                        .append(Component.newline())
+                        .append(Component.text("Aliado trazendo de volta: " + flag.getCarrierName(), NamedTextColor.YELLOW));
+            } else {
+                text = Component.text("⚠ BANDEIRA DE ", NamedTextColor.RED, TextDecoration.BOLD)
+                        .append(tagComp)
+                        .append(Component.text(" ROUBADA!", NamedTextColor.RED, TextDecoration.BOLD))
+                        .append(Component.newline())
+                        .append(Component.text("Ladrão: " + flag.getCarrierName() + " (" + flag.getCarrierTeamName() + ")", NamedTextColor.YELLOW));
+            }
         } else if (flag.getStatus() == FlagStatus.DROPPED) {
             text = Component.text("⚠ BANDEIRA DE ", NamedTextColor.GOLD, TextDecoration.BOLD)
                     .append(tagComp)
-                    .append(Component.text(" CAÍDA NO CHÃO!", NamedTextColor.YELLOW, TextDecoration.BOLD));
+                    .append(Component.text(" CAÍDA NO CHÃO!", NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.newline())
+                    .append(Component.text("Pegue-a e traga de volta para a base!", NamedTextColor.WHITE));
         } else {
             return;
         }
@@ -491,33 +503,45 @@ public class CtfManager {
                         ? " (X: " + carrierBase.getCenterX() + ", Z: " + carrierBase.getCenterZ() + ")"
                         : "";
 
-                carrier.sendActionBar(Component.text("🚩 Carregando Bandeira de ", NamedTextColor.GOLD, TextDecoration.BOLD)
-                        .append(Component.text(flag.getTeamName(), teamColor, TextDecoration.BOLD))
-                        .append(Component.text("! Corra para sua Base" + baseCoords + " [+" + POINTS_CAPTURE_FLAG + " pts]", NamedTextColor.YELLOW)));
+                boolean ownTeamCarrying = carrierTeam != null && carrierTeam.getName().equalsIgnoreCase(flag.getTeamName());
+                if (ownTeamCarrying) {
+                    carrier.sendActionBar(Component.text("🛡 Recuperando a Bandeira de ", NamedTextColor.GREEN, TextDecoration.BOLD)
+                            .append(Component.text(flag.getTeamName(), teamColor, TextDecoration.BOLD))
+                            .append(Component.text("! Leve-a até sua Base" + baseCoords + " para devolvê-la ao pedestal!", NamedTextColor.YELLOW)));
+                } else {
+                    carrier.sendActionBar(Component.text("🚩 Carregando Bandeira de ", NamedTextColor.GOLD, TextDecoration.BOLD)
+                            .append(Component.text(flag.getTeamName(), teamColor, TextDecoration.BOLD))
+                            .append(Component.text("! Corra para sua Base" + baseCoords + " [+" + POINTS_CAPTURE_FLAG + " pts]", NamedTextColor.YELLOW)));
 
-                // Avisa membros do time vítima com as coordenadas do ladrão
-                if (flagTeam != null) {
-                    Location cLoc = carrier.getLocation();
-                    Component victimAlert = Component.text("⚠ Bandeira do seu time com ", NamedTextColor.RED, TextDecoration.BOLD)
-                            .append(Component.text(carrier.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
-                            .append(Component.text(" em X: " + cLoc.getBlockX() + ", Y: " + cLoc.getBlockY() + ", Z: " + cLoc.getBlockZ() + "!", NamedTextColor.WHITE));
-                    for (UUID memberId : flagTeam.getMembers()) {
-                        Player member = Bukkit.getPlayer(memberId);
-                        if (member != null && member.isOnline()) {
-                            member.sendActionBar(victimAlert);
+                    // Avisa membros do time vítima com as coordenadas do ladrão
+                    if (flagTeam != null) {
+                        Location cLoc = carrier.getLocation();
+                        Component victimAlert = Component.text("⚠ Bandeira do seu time com ", NamedTextColor.RED, TextDecoration.BOLD)
+                                .append(Component.text(carrier.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
+                                .append(Component.text(" em X: " + cLoc.getBlockX() + ", Y: " + cLoc.getBlockY() + ", Z: " + cLoc.getBlockZ() + "!", NamedTextColor.WHITE));
+                        for (UUID memberId : flagTeam.getMembers()) {
+                            Player member = Bukkit.getPlayer(memberId);
+                            if (member != null && member.isOnline()) {
+                                member.sendActionBar(victimAlert);
+                            }
                         }
                     }
                 }
             } else if (flag.getStatus() == FlagStatus.DROPPED) {
-                flag.droppedRemainingSeconds--;
                 Entity itemEntity = flag.getDroppedItemEntityId() != null ? Bukkit.getEntity(flag.getDroppedItemEntityId()) : null;
-                if (itemEntity == null || !itemEntity.isValid() || itemEntity.getLocation().getBlockY() < itemEntity.getWorld().getMinHeight()) {
-                    returnFlagToBase(flag, "A bandeira caída de " + flag.getTeamName() + " retornou automaticamente para a base!");
-                } else if (flag.droppedRemainingSeconds <= 0) {
-                    removeDroppedFlagEntity(flag);
-                    returnFlagToBase(flag, "O tempo de 60s no chão expirou e a bandeira de " + flag.getTeamName() + " voltou para a base!");
+                if (itemEntity == null || !itemEntity.isValid()) {
+                    // Se o item sumiu por descarga de chunk, recria na última posição caída para nunca desaparecer sozinho
+                    Location dLoc = flag.getDroppedLocation();
+                    if (dLoc != null && dLoc.getWorld() != null && dLoc.getBlockY() > dLoc.getWorld().getMinHeight()) {
+                        spawnDroppedFlagEntity(flag, dLoc, teamColor);
+                    } else {
+                        returnFlagToBase(flag, "A bandeira caída de " + flag.getTeamName() + " caiu no void e voltou para a base!");
+                    }
+                } else if (itemEntity.getLocation().getBlockY() < itemEntity.getWorld().getMinHeight()) {
+                    returnFlagToBase(flag, "A bandeira caída de " + flag.getTeamName() + " caiu no void e voltou para a base!");
                 } else {
-                    itemEntity.customName(Component.text("🚩 Bandeira de " + flag.getTeamName() + " (" + flag.droppedRemainingSeconds + "s)", teamColor, TextDecoration.BOLD));
+                    flag.droppedLocation = itemEntity.getLocation();
+                    itemEntity.customName(Component.text("🚩 Bandeira de " + flag.getTeamName() + " (Pegue e leve p/ Base!)", teamColor, TextDecoration.BOLD));
                     Particle.DustOptions dust = new Particle.DustOptions(mapNamedColorToBukkitColor(teamColor), 1.6f);
                     itemEntity.getWorld().spawnParticle(Particle.DUST, itemEntity.getLocation().add(0, 0.6, 0), 10, 0.25, 0.3, 0.25, 0.0, dust);
                 }
@@ -553,10 +577,15 @@ public class CtfManager {
             Team t = teamManager.getTeamByName(flag.getTeamKey());
             NamedTextColor color = (t != null && t.getColor() != null) ? t.getColor() : NamedTextColor.WHITE;
             Location bLoc = flag.getFlagBlockLocation();
+            Location dLoc = flag.getDroppedLocation();
             String statusText = switch (flag.getStatus()) {
                 case AT_BASE -> "§aNa Base §7(X: " + bLoc.getBlockX() + ", Y: " + bLoc.getBlockY() + ", Z: " + bLoc.getBlockZ() + ")";
-                case CARRIED -> "§cROUBADA por §e" + flag.getCarrierName() + " §7[" + flag.getCarrierTeamName() + "]";
-                case DROPPED -> "§6CAÍDA NO CHÃO §7(" + flag.getDroppedRemainingSeconds() + "s p/ voltar)";
+                case CARRIED -> flag.getTeamName().equalsIgnoreCase(flag.getCarrierTeamName())
+                        ? "§aSENDO DEVOLVIDA por §e" + flag.getCarrierName() + " §7[" + flag.getCarrierTeamName() + "]"
+                        : "§cROUBADA por §e" + flag.getCarrierName() + " §7[" + flag.getCarrierTeamName() + "]";
+                case DROPPED -> dLoc != null
+                        ? "§6CAÍDA NO CHÃO §7(X: " + dLoc.getBlockX() + ", Y: " + dLoc.getBlockY() + ", Z: " + dLoc.getBlockZ() + ")"
+                        : "§6CAÍDA NO CHÃO";
                 case CAPTURED -> "§4CAPTURADA por §e" + flag.getCapturedByTeamName() + " §7(" + flag.getCapturedByPlayerName() + ")";
             };
             Bukkit.broadcast(Component.text(" • Bandeira de ", NamedTextColor.GRAY)
@@ -905,8 +934,10 @@ public class CtfManager {
     }
 
     /**
-     * Verifica se o jogador que esta carregando uma bandeira inimiga entrou no raio (30 blocos)
-     * da base do seu proprio time. Se entrou, a bandeira some e os +100 pontos somam na hora!
+     * Verifica se o jogador que esta carregando uma bandeira entrou no raio (30 blocos)
+     * da base do seu proprio time:
+     * - Se for a bandeira do PROPRIO time (recuperada do chao): ela some do inventario e volta para o pedestal da base!
+     * - Se for uma bandeira INIMIGA: ela some do inventario e os +100 pontos somam na hora!
      */
     public boolean checkCarrierReachedBase(Player player, Location location) {
         if (!active || player == null || location == null) {
@@ -927,12 +958,36 @@ public class CtfManager {
             return false;
         }
 
-        // Entrou no raio da base do próprio time! A bandeira some e os +100 pontos somam!
+        // Caso 1: O jogador é dono da bandeira e está trazendo a própria bandeira de volta para a base!
+        if (carrierTeam.getName().equalsIgnoreCase(flag.getTeamName())) {
+            // Se ele pegou a bandeira já dentro do raio da própria base, precisa chegar perto do centro/pedestal (<= 4 blocos)
+            if (flag.pickedUpInsideOwnBase) {
+                Location pedLoc = flag.getFlagBlockLocation();
+                if (pedLoc.getWorld() != null && pedLoc.getWorld().equals(location.getWorld())) {
+                    double dx = location.getX() - (pedLoc.getBlockX() + 0.5);
+                    double dz = location.getZ() - (pedLoc.getBlockZ() + 0.5);
+                    if ((dx * dx + dz * dz) > 16.0) {
+                        return false;
+                    }
+                }
+            }
+
+            removeFlagItemFromPlayer(player, flag.getTeamKey());
+            player.removePotionEffect(PotionEffectType.GLOWING);
+            flag.pickedUpInsideOwnBase = false;
+
+            returnFlagToBase(flag, player.getName() + " trouxe a bandeira de " + flag.getTeamName() + " de volta para a base!");
+            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.3f);
+            return true;
+        }
+
+        // Caso 2: Bandeira inimiga trazida para o raio da base do time ladrão! A bandeira some e soma +100 pontos!
         removeFlagItemFromPlayer(player, flag.getTeamKey());
         player.removePotionEffect(PotionEffectType.GLOWING);
 
         flag.status = FlagStatus.CAPTURED;
         flag.carrierId = null;
+        flag.pickedUpInsideOwnBase = false;
         flag.capturedByTeamName = carrierTeam.getName();
         flag.capturedByPlayerName = player.getName();
 
@@ -972,6 +1027,7 @@ public class CtfManager {
 
     /**
      * Chamado quando o portador da bandeira morre ou desconecta antes de chegar na base.
+     * A bandeira fica dropada no chao ate que alguem (o time dono ou um time inimigo) pegue e leve para a base.
      */
     public void handleCarrierLostFlag(Player carrier, Location dropLoc) {
         if (!active || carrier == null) {
@@ -991,45 +1047,53 @@ public class CtfManager {
             return;
         }
 
-        // Se o portador morreu dentro da própria base do time dono da bandeira, devolve direto para o pedestal!
-        TeamBase victimBase = baseManager.getBaseByTeam(flag.getTeamKey());
-        if (victimBase != null && victimBase.contains(dropLoc)) {
-            returnFlagToBase(flag, carrier.getName() + " foi abatido dentro da base de " + flag.getTeamName() + " e a bandeira voltou ao pedestal!");
+        Team victimTeam = teamManager.getTeamByName(flag.getTeamKey());
+        NamedTextColor victimColor = (victimTeam != null && victimTeam.getColor() != null) ? victimTeam.getColor() : NamedTextColor.GOLD;
+
+        spawnDroppedFlagEntity(flag, dropLoc, victimColor);
+
+        flag.status = FlagStatus.DROPPED;
+        flag.carrierId = null;
+        flag.carrierName = null;
+        flag.carrierTeamName = null;
+        flag.pickedUpInsideOwnBase = false;
+        flag.droppedRemainingSeconds = 0;
+
+        spawnOrUpdateBaseHologram(flag, victimTeam);
+
+        Bukkit.broadcast(Component.text("🚩 BANDEIRA NO CHÃO! ", NamedTextColor.GOLD, TextDecoration.BOLD)
+                .append(Component.text(carrier.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
+                .append(Component.text(" morreu e derrubou a bandeira de ", NamedTextColor.WHITE))
+                .append(Component.text(flag.getTeamName(), victimColor, TextDecoration.BOLD))
+                .append(Component.text(" em (X: " + dropLoc.getBlockX() + ", Y: " + dropLoc.getBlockY() + ", Z: " + dropLoc.getBlockZ() + ")! ", NamedTextColor.GRAY))
+                .append(Component.text("(Pegue-a no chão e leve até a sua base!)", NamedTextColor.YELLOW)));
+    }
+
+    private void spawnDroppedFlagEntity(TeamFlag flag, Location dropLoc, NamedTextColor victimColor) {
+        removeDroppedFlagEntity(flag);
+        World world = dropLoc.getWorld();
+        if (world == null) {
             return;
         }
-
+        if (!world.isChunkLoaded(dropLoc.getBlockX() >> 4, dropLoc.getBlockZ() >> 4)) {
+            world.getChunkAt(dropLoc.getBlockX() >> 4, dropLoc.getBlockZ() >> 4).load();
+        }
         ItemStack flagStack = createFlagItem(flag);
         Item dropped = world.dropItem(dropLoc.clone().add(0, 0.4, 0), flagStack);
         dropped.setInvulnerable(true);
         dropped.setGlowing(true);
         dropped.setUnlimitedLifetime(true);
         dropped.setPickupDelay(15);
-
-        Team victimTeam = teamManager.getTeamByName(flag.getTeamKey());
-        NamedTextColor victimColor = (victimTeam != null && victimTeam.getColor() != null) ? victimTeam.getColor() : NamedTextColor.GOLD;
-        dropped.customName(Component.text("🚩 Bandeira de " + flag.getTeamName() + " (" + DROPPED_FLAG_RETURN_SECONDS + "s)", victimColor, TextDecoration.BOLD));
+        dropped.customName(Component.text("🚩 Bandeira de " + flag.getTeamName() + " (Pegue e leve p/ Base!)", victimColor, TextDecoration.BOLD));
         dropped.setCustomNameVisible(true);
 
-        flag.status = FlagStatus.DROPPED;
-        flag.carrierId = null;
-        flag.carrierName = null;
-        flag.carrierTeamName = null;
         flag.droppedItemEntityId = dropped.getUniqueId();
         flag.droppedLocation = dropped.getLocation();
-        flag.droppedRemainingSeconds = DROPPED_FLAG_RETURN_SECONDS;
-
-        spawnOrUpdateBaseHologram(flag, victimTeam);
-
-        Bukkit.broadcast(Component.text("🚩 BANDEIRA NO CHÃO! ", NamedTextColor.GOLD, TextDecoration.BOLD)
-                .append(Component.text(carrier.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" perdeu a bandeira de ", NamedTextColor.WHITE))
-                .append(Component.text(flag.getTeamName(), victimColor, TextDecoration.BOLD))
-                .append(Component.text(" em (X: " + dropLoc.getBlockX() + ", Y: " + dropLoc.getBlockY() + ", Z: " + dropLoc.getBlockZ() + ")! ", NamedTextColor.GRAY))
-                .append(Component.text("(O time dono pode tocar nela para devolver à base, ou rivais podem pegá-la em 60s!)", NamedTextColor.YELLOW)));
     }
 
     /**
      * Chamado quando um jogador passa por cima de uma bandeira caida no chao.
+     * Tanto o time dono quanto um time inimigo pegam a bandeira no inventario e precisam leva-la ate a base!
      */
     public void handlePickupDroppedFlag(Player player, Item itemEntity, String flagTeamKey) {
         if (!active || player == null || itemEntity == null || flagTeamKey == null) {
@@ -1050,29 +1114,21 @@ public class CtfManager {
             return;
         }
 
-        // Se o jogador é do PRÓPRIO time dono da bandeira: recupera e devolve a bandeira para a base!
-        if (playerTeam.getName().equalsIgnoreCase(flag.getTeamName())) {
-            itemEntity.remove();
-            flag.droppedItemEntityId = null;
-            returnFlagToBase(flag, player.getName() + " recuperou a bandeira de " + flag.getTeamName() + " e ela voltou para a base!");
-            player.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.3f);
-            return;
-        }
-
-        // Se é de um time rival: precisa ter base criada e não estar carregando outra bandeira
         TeamBase ownBase = baseManager.getBaseByTeam(playerTeam.getName());
         if (ownBase == null) {
             player.sendActionBar(Component.text("🚩 Seu time precisa ter uma base criada (/base criar) para pegar a bandeira!", NamedTextColor.RED));
             return;
         }
         if (isCarryingFlag(player.getUniqueId())) {
-            player.sendActionBar(Component.text("🚩 Você já está carregando outra bandeira inimiga!", NamedTextColor.RED));
+            player.sendActionBar(Component.text("🚩 Você já está carregando outra bandeira!", NamedTextColor.RED));
             return;
         }
         if (player.getInventory().firstEmpty() == -1) {
             player.sendActionBar(Component.text("🚩 Seu inventário está cheio! Libere 1 slot para pegar a bandeira!", NamedTextColor.RED));
             return;
         }
+
+        boolean isOwnerTeam = playerTeam.getName().equalsIgnoreCase(flag.getTeamName());
 
         itemEntity.remove();
         flag.droppedItemEntityId = null;
@@ -1082,6 +1138,7 @@ public class CtfManager {
         flag.carrierId = player.getUniqueId();
         flag.carrierName = player.getName();
         flag.carrierTeamName = playerTeam.getName();
+        flag.pickedUpInsideOwnBase = isOwnerTeam && ownBase.contains(player.getLocation());
 
         player.getInventory().addItem(createFlagItem(flag));
         player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 60, 0, false, false, true));
@@ -1090,12 +1147,21 @@ public class CtfManager {
         spawnOrUpdateBaseHologram(flag, victimTeam);
         NamedTextColor victimColor = (victimTeam != null && victimTeam.getColor() != null) ? victimTeam.getColor() : NamedTextColor.RED;
 
-        Bukkit.broadcast(Component.text("🚩 BANDEIRA PEGA! ", NamedTextColor.RED, TextDecoration.BOLD)
-                .append(playerTeam.getFormattedTag())
-                .append(Component.text(" " + player.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(Component.text(" pegou a bandeira caída de ", NamedTextColor.WHITE))
-                .append(Component.text(flag.getTeamName(), victimColor, TextDecoration.BOLD))
-                .append(Component.text(" e está correndo para a base de " + playerTeam.getName() + "!", NamedTextColor.WHITE)));
+        if (isOwnerTeam) {
+            Bukkit.broadcast(Component.text("🛡 RECUPERANDO BANDEIRA! ", NamedTextColor.GREEN, TextDecoration.BOLD)
+                    .append(playerTeam.getFormattedTag())
+                    .append(Component.text(" " + player.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text(" pegou a bandeira caída do próprio time (", NamedTextColor.WHITE))
+                    .append(Component.text(flag.getTeamName(), victimColor, TextDecoration.BOLD))
+                    .append(Component.text(") e está levando de volta para a base!", NamedTextColor.WHITE)));
+        } else {
+            Bukkit.broadcast(Component.text("🚩 BANDEIRA PEGA! ", NamedTextColor.RED, TextDecoration.BOLD)
+                    .append(playerTeam.getFormattedTag())
+                    .append(Component.text(" " + player.getName(), NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text(" pegou a bandeira caída de ", NamedTextColor.WHITE))
+                    .append(Component.text(flag.getTeamName(), victimColor, TextDecoration.BOLD))
+                    .append(Component.text(" e está correndo para a base de " + playerTeam.getName() + "!", NamedTextColor.WHITE)));
+        }
 
         checkCarrierReachedBase(player, player.getLocation());
     }

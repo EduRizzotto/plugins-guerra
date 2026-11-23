@@ -99,10 +99,15 @@ public class CtfCommand implements CommandExecutor, TabCompleter {
                 .append(Component.text(String.format("%02d:%02d", mins, secs), NamedTextColor.YELLOW, TextDecoration.BOLD)));
         for (TeamFlag flag : ctfManager.getAllFlags()) {
             Location loc = flag.getFlagBlockLocation();
+            Location dLoc = flag.getDroppedLocation();
             String state = switch (flag.getStatus()) {
                 case AT_BASE -> "Na Base (X: " + loc.getBlockX() + ", Y: " + loc.getBlockY() + ", Z: " + loc.getBlockZ() + ")";
-                case CARRIED -> "ROUBADA por " + flag.getCarrierName() + " [" + flag.getCarrierTeamName() + "]";
-                case DROPPED -> "CAÍDA NO CHÃO (" + flag.getDroppedRemainingSeconds() + "s p/ voltar)";
+                case CARRIED -> flag.getTeamName().equalsIgnoreCase(flag.getCarrierTeamName())
+                        ? "SENDO DEVOLVIDA por " + flag.getCarrierName() + " [" + flag.getCarrierTeamName() + "]"
+                        : "ROUBADA por " + flag.getCarrierName() + " [" + flag.getCarrierTeamName() + "]";
+                case DROPPED -> dLoc != null
+                        ? "CAÍDA NO CHÃO (X: " + dLoc.getBlockX() + ", Y: " + dLoc.getBlockY() + ", Z: " + dLoc.getBlockZ() + ")"
+                        : "CAÍDA NO CHÃO";
                 case CAPTURED -> "CAPTURADA por " + flag.getCapturedByTeamName() + " (" + flag.getCapturedByPlayerName() + ")";
             };
             NamedTextColor stateColor = switch (flag.getStatus()) {
