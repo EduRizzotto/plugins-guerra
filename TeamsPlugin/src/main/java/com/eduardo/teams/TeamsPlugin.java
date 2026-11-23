@@ -22,6 +22,9 @@ import com.eduardo.teams.dimension.DimensionLockManager;
 import com.eduardo.teams.doom.DoomCommand;
 import com.eduardo.teams.doom.DoomListener;
 import com.eduardo.teams.doom.DoomManager;
+import com.eduardo.teams.endstorm.EndStormCommand;
+import com.eduardo.teams.endstorm.EndStormListener;
+import com.eduardo.teams.endstorm.EndStormManager;
 import com.eduardo.teams.gui.TeamGui;
 import com.eduardo.teams.horn.TrackerHornListener;
 import com.eduardo.teams.horn.TrackerHornManager;
@@ -76,6 +79,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private ZoneManager zoneManager;
     private BaseManager baseManager;
     private CtfManager ctfManager;
+    private EndStormManager endStormManager;
     private CombatListener combatListener;
 
     @Override
@@ -135,6 +139,10 @@ public final class TeamsPlugin extends JavaPlugin {
         this.ctfManager = new CtfManager(this, this.teamManager, this.baseManager);
         baseCommand.setCtfManager(this.ctfManager);
         CtfCommand ctfCommand = new CtfCommand(this.ctfManager);
+
+        this.endStormManager = new EndStormManager(this, this.teamManager);
+        this.endStormManager.setCompassManager(this.compassManager);
+        EndStormCommand endStormCommand = new EndStormCommand(this.endStormManager);
 
         PluginCommand cmd = getCommand("team");
         if (cmd != null) {
@@ -254,6 +262,12 @@ public final class TeamsPlugin extends JavaPlugin {
             ctfCmd.setTabCompleter(ctfCommand);
         }
 
+        PluginCommand endStormCmd = getCommand("tempestadeend");
+        if (endStormCmd != null) {
+            endStormCmd.setExecutor(endStormCommand);
+            endStormCmd.setTabCompleter(endStormCommand);
+        }
+
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);
         hornListener.setQuestManager(this.questManager);
 
@@ -279,6 +293,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new ZoneListener(this.zoneManager), this);
         pm.registerEvents(new BaseListener(this, this.baseManager, this.teamManager), this);
         pm.registerEvents(new CtfListener(this.ctfManager), this);
+        pm.registerEvents(new EndStormListener(this.endStormManager), this);
         pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
@@ -311,6 +326,9 @@ public final class TeamsPlugin extends JavaPlugin {
         }
         if (this.ctfManager != null) {
             this.ctfManager.shutdown();
+        }
+        if (this.endStormManager != null) {
+            this.endStormManager.shutdown();
         }
         if (this.doomManager != null) {
             this.doomManager.shutdown();

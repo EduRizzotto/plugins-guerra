@@ -35,7 +35,8 @@ public class EventCompassManager {
         RELIC("relic", "🧭 Bússola: Portador da Relíquia", NamedTextColor.YELLOW),
         HUNT("hunt", "🧭 Bússola: Caçada", NamedTextColor.RED),
         KOTH("koth", "🧭 Bússola: Torre de Domínio", NamedTextColor.AQUA),
-        DOOM("doom", "🧭 Bússola: Fortaleza DOOM", NamedTextColor.DARK_RED);
+        DOOM("doom", "🧭 Bússola: Fortaleza DOOM", NamedTextColor.DARK_RED),
+        END_STORM("end_storm", "🧭 Bússola: Tempestade do End", NamedTextColor.LIGHT_PURPLE);
 
         private final String id;
         private final String displayTitle;

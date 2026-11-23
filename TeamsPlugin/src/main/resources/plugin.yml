@@ -77,6 +77,10 @@ commands:
     description: Inicia ou gerencia o evento Capture The Flag nas bases dos times (apenas OP/admin).
     aliases: [ctf, roumabandeira]
     usage: /capturetheflag [iniciar|status|finalizar|parar]
+  tempestadeend:
+    description: Invoca ou gerencia o evento Tempestade do End / Fenda do Vazio (apenas OP/admin).
+    aliases: [endstorm, fendaend, tempestade]
+    usage: /tempestadeend [aqui|status|parar]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
