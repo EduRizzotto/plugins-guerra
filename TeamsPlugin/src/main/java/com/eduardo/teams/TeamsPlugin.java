@@ -72,6 +72,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private KitManager kitManager;
     private ZoneManager zoneManager;
     private BaseManager baseManager;
+    private CombatListener combatListener;
 
     @Override
     public void onEnable() {
@@ -245,9 +246,11 @@ public final class TeamsPlugin extends JavaPlugin {
         AirDropListener airDropListener = new AirDropListener(this.airDropManager, this.teamManager);
         airDropListener.setQuestManager(this.questManager);
 
+        this.combatListener = new CombatListener(this, this.teamManager);
+
         PluginManager pm = Bukkit.getPluginManager();
         pm.registerEvents(new GuiListener(this.teamManager, teamGui, teamCommand), this);
-        pm.registerEvents(new CombatListener(this.teamManager), this);
+        pm.registerEvents(this.combatListener, this);
         pm.registerEvents(new PlayerChatAndJoinListener(this, this.teamManager, teamCommand), this);
         pm.registerEvents(new WallBoardListener(this, this.wallBoardManager), this);
         pm.registerEvents(hornListener, this);
@@ -288,6 +291,9 @@ public final class TeamsPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (this.combatListener != null) {
+            this.combatListener.shutdown();
+        }
         if (this.doomManager != null) {
             this.doomManager.shutdown();
         }

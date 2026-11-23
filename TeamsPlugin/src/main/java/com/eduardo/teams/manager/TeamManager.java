@@ -270,13 +270,80 @@ public class TeamManager {
     }
 
     /**
-     * Registra que 'attackerId' causou dano em 'victimId' para rastrear mortes em PvP.
+     * Registra que 'attackerId' entrou em combate PvP com 'victimId' (15 segundos).
      */
     public void recordPvpDamage(UUID victimId, UUID attackerId) {
         if (victimId == null || attackerId == null || victimId.equals(attackerId)) {
             return;
         }
         lastDamageMap.put(victimId, new CombatTag(attackerId, System.currentTimeMillis()));
+    }
+
+    /**
+     * Consulta o oponente recente em combate PvP (ultimos 15s) sem remover a tag.
+     */
+    public UUID getRecentPvpAttacker(UUID playerId) {
+        if (playerId == null) {
+            return null;
+        }
+        CombatTag tag = lastDamageMap.get(playerId);
+        if (tag == null) {
+            return null;
+        }
+        if (System.currentTimeMillis() - tag.timestamp() <= COMBAT_TAG_DURATION_MS) {
+            return tag.attackerId();
+        }
+        lastDamageMap.remove(playerId);
+        return null;
+    }
+
+    /**
+     * Retorna quantos segundos faltam para a tag de combate PvP expirar (0 se fora de combate).
+     */
+    public int getCombatRemainingSeconds(UUID playerId) {
+        if (playerId == null) {
+            return 0;
+        }
+        CombatTag tag = lastDamageMap.get(playerId);
+        if (tag == null) {
+            return 0;
+        }
+        long elapsed = System.currentTimeMillis() - tag.timestamp();
+        long remainingMs = COMBAT_TAG_DURATION_MS - elapsed;
+        if (remainingMs <= 0L) {
+            lastDamageMap.remove(playerId);
+            return 0;
+        }
+        return (int) Math.ceil(remainingMs / 1000.0);
+    }
+
+    /**
+     * Remove a tag de combate de um jogador.
+     */
+    public void clearCombatTag(UUID playerId) {
+        if (playerId != null) {
+            lastDamageMap.remove(playerId);
+        }
+    }
+
+    /**
+     * Remove a tag de combate de 'playerId' apenas se o ultimo oponente registrado for 'opponentId'.
+     */
+    public void clearCombatTagIfOpponent(UUID playerId, UUID opponentId) {
+        if (playerId == null || opponentId == null) {
+            return;
+        }
+        CombatTag tag = lastDamageMap.get(playerId);
+        if (tag != null && opponentId.equals(tag.attackerId())) {
+            lastDamageMap.remove(playerId);
+        }
+    }
+
+    /**
+     * Retorna uma copia dos UUIDs atualmente com registro no mapa de combate PvP.
+     */
+    public List<UUID> getTrackedCombatPlayerIds() {
+        return new ArrayList<>(lastDamageMap.keySet());
     }
 
     /**
