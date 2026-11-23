@@ -87,8 +87,8 @@ public class EndStormListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        // Mantem os Endermen/Shulkers dentro do raio de 16 blocos da Fenda
-        if (to.distanceSquared(center) > 256.0) {
+        // Mantem os Endermen/Shulkers dentro do raio de 50 blocos da Fenda de 80 blocos
+        if (to.distanceSquared(center) > 2500.0) {
             event.setCancelled(true);
         }
     }
