@@ -704,7 +704,7 @@ public class EndStormManager {
             }
 
             world.spawnParticle(Particle.PORTAL, crystalLocation.clone().add(0, 0.5, 0), 35, 2.2, 1.5, 2.2, 0.3);
-            world.spawnParticle(Particle.DRAGON_BREATH, crystalLocation.clone().add(0, 0.4, 0), 12, 1.6, 0.8, 1.6, 0.02);
+            world.spawnParticle(Particle.WITCH, crystalLocation.clone().add(0, 0.4, 0), 12, 1.6, 0.8, 1.6, 0.02);
 
             for (Location pLoc : fissureParticlePoints) {
                 if (world.isChunkLoaded(pLoc.getBlockX() >> 4, pLoc.getBlockZ() >> 4)) {
@@ -839,7 +839,7 @@ public class EndStormManager {
         World world = crystalLocation.getWorld();
         if (world != null) {
             world.playSound(crystalLocation, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1.2f, 0.8f);
-            world.spawnParticle(Particle.DRAGON_BREATH, crystalLocation, 18, 0.4, 0.4, 0.4, 0.05);
+            world.spawnParticle(Particle.WITCH, crystalLocation, 18, 0.4, 0.4, 0.4, 0.05);
         }
 
         attacker.sendActionBar(Component.text("🌌 Cristal da Fenda: ", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD)
@@ -866,7 +866,7 @@ public class EndStormManager {
         world.playSound(crystalLocation, Sound.ENTITY_ENDERMAN_SCREAM, 1.5f, 0.6f);
         world.playSound(crystalLocation, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.3f);
         world.spawnParticle(Particle.EXPLOSION_EMITTER, crystalLocation, 1, 0, 0, 0, 0);
-        world.spawnParticle(Particle.DRAGON_BREATH, crystalLocation, 60, 2.5, 1.0, 2.5, 0.08);
+        world.spawnParticle(Particle.WITCH, crystalLocation, 60, 2.5, 1.0, 2.5, 0.08);
 
         for (Player p : world.getPlayers()) {
             if (p.getLocation().distanceSquared(crystalLocation) <= 121.0) {
@@ -891,7 +891,7 @@ public class EndStormManager {
             world.playSound(crystalLocation, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.5f, 0.9f);
             world.playSound(crystalLocation, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.1f);
             world.spawnParticle(Particle.EXPLOSION_EMITTER, crystalLocation, 2, 0.4, 0.4, 0.4, 0.0);
-            world.spawnParticle(Particle.DRAGON_BREATH, crystalLocation, 120, 3.0, 1.5, 3.0, 0.1);
+            world.spawnParticle(Particle.WITCH, crystalLocation, 120, 3.0, 1.5, 3.0, 0.1);
 
             Location dropLoc = baseCenter.clone().add(0.5, 1.5, 0.5);
             world.dropItemNaturally(dropLoc, new ItemStack(Material.ENDER_PEARL, 12));
