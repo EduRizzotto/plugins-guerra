@@ -36,7 +36,8 @@ public class EventCompassManager {
         HUNT("hunt", "🧭 Bússola: Caçada", NamedTextColor.RED),
         KOTH("koth", "🧭 Bússola: Torre de Domínio", NamedTextColor.AQUA),
         DOOM("doom", "🧭 Bússola: Fortaleza DOOM", NamedTextColor.DARK_RED),
-        END_STORM("end_storm", "🧭 Bússola: Tempestade do End", NamedTextColor.LIGHT_PURPLE);
+        END_STORM("end_storm", "🧭 Bússola: Tempestade do End", NamedTextColor.LIGHT_PURPLE),
+        NETHER_STORM("nether_storm", "🧭 Bússola: Tempestade do Nether", NamedTextColor.RED);
 
         private final String id;
         private final String displayTitle;

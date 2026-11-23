@@ -25,6 +25,9 @@ import com.eduardo.teams.doom.DoomManager;
 import com.eduardo.teams.endstorm.EndStormCommand;
 import com.eduardo.teams.endstorm.EndStormListener;
 import com.eduardo.teams.endstorm.EndStormManager;
+import com.eduardo.teams.netherstorm.NetherStormCommand;
+import com.eduardo.teams.netherstorm.NetherStormListener;
+import com.eduardo.teams.netherstorm.NetherStormManager;
 import com.eduardo.teams.gui.TeamGui;
 import com.eduardo.teams.horn.TrackerHornListener;
 import com.eduardo.teams.horn.TrackerHornManager;
@@ -80,6 +83,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private BaseManager baseManager;
     private CtfManager ctfManager;
     private EndStormManager endStormManager;
+    private NetherStormManager netherStormManager;
     private CombatListener combatListener;
 
     @Override
@@ -143,6 +147,10 @@ public final class TeamsPlugin extends JavaPlugin {
         this.endStormManager = new EndStormManager(this, this.teamManager);
         this.endStormManager.setCompassManager(this.compassManager);
         EndStormCommand endStormCommand = new EndStormCommand(this.endStormManager);
+
+        this.netherStormManager = new NetherStormManager(this, this.teamManager);
+        this.netherStormManager.setCompassManager(this.compassManager);
+        NetherStormCommand netherStormCommand = new NetherStormCommand(this.netherStormManager);
 
         PluginCommand cmd = getCommand("team");
         if (cmd != null) {
@@ -268,6 +276,12 @@ public final class TeamsPlugin extends JavaPlugin {
             endStormCmd.setTabCompleter(endStormCommand);
         }
 
+        PluginCommand netherStormCmd = getCommand("tempestadenether");
+        if (netherStormCmd != null) {
+            netherStormCmd.setExecutor(netherStormCommand);
+            netherStormCmd.setTabCompleter(netherStormCommand);
+        }
+
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);
         hornListener.setQuestManager(this.questManager);
 
@@ -294,6 +308,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new BaseListener(this, this.baseManager, this.teamManager), this);
         pm.registerEvents(new CtfListener(this.ctfManager), this);
         pm.registerEvents(new EndStormListener(this.endStormManager), this);
+        pm.registerEvents(new NetherStormListener(this.netherStormManager), this);
         pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
@@ -329,6 +344,9 @@ public final class TeamsPlugin extends JavaPlugin {
         }
         if (this.endStormManager != null) {
             this.endStormManager.shutdown();
+        }
+        if (this.netherStormManager != null) {
+            this.netherStormManager.shutdown();
         }
         if (this.doomManager != null) {
             this.doomManager.shutdown();

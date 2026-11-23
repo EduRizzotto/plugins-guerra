@@ -81,6 +81,10 @@ commands:
     description: Invoca ou gerencia o evento Tempestade do End / Fenda do Vazio (apenas OP/admin).
     aliases: [endstorm, fendaend, tempestade]
     usage: /tempestadeend [aqui|status|parar]
+  tempestadenether:
+    description: Invoca ou gerencia o evento Tempestade do Nether / Fenda Infernal (apenas OP/admin).
+    aliases: [netherstorm, fendanether]
+    usage: /tempestadenether [aqui|status|parar]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
