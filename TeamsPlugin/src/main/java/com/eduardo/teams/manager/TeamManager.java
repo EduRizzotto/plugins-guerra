@@ -58,8 +58,13 @@ public class TeamManager {
     public static final int POINTS_KOTH_WIN = 50;
 
     private static final long COMBAT_TAG_DURATION_MS = 15_000L;
+    private static final long PVP_KILL_COOLDOWN_MS = 10L * 60L * 1000L; // 10 minutos por vitima
     private final Map<UUID, PlayerStats> playerStatsMap = new HashMap<>();
     private final Map<UUID, CombatTag> lastDamageMap = new HashMap<>();
+    // Mapa "killerUUID:victimUUID" -> timestamp do ultimo abate que concedeu pontos e quest
+    private final Map<String, Long> pvpKillCooldownMap = new HashMap<>();
+    // Mapa "killerUUID:victimUUID" -> se o ultimo abate processado concedeu recompensa (para sincronizar com QuestListener)
+    private final Map<String, Boolean> lastKillRewardedMap = new HashMap<>();
     // Nomes de jogadores (em minusculo) autorizados via /leader add <nome> a criar times
     private final Set<String> authorizedLeaders = new LinkedHashSet<>();
 
@@ -360,21 +365,67 @@ public class TeamManager {
         return null;
     }
 
+    private String toKillPairKey(UUID killerId, UUID victimId) {
+        return killerId + ":" + victimId;
+    }
+
+    /**
+     * Verifica se o assassino esta em cooldown de 10 minutos para ganhar pontos/progresso de quest sobre esta mesma vitima.
+     */
+    public boolean isPvpKillOnCooldown(UUID killerId, UUID victimId) {
+        return getPvpKillCooldownRemainingSeconds(killerId, victimId) > 0;
+    }
+
+    /**
+     * Retorna quantos segundos faltam para o cooldown de 10 minutos entre (killerId -> victimId) expirar.
+     */
+    public int getPvpKillCooldownRemainingSeconds(UUID killerId, UUID victimId) {
+        if (killerId == null || victimId == null) {
+            return 0;
+        }
+        String key = toKillPairKey(killerId, victimId);
+        Long lastTimestamp = pvpKillCooldownMap.get(key);
+        if (lastTimestamp == null) {
+            return 0;
+        }
+        long elapsed = System.currentTimeMillis() - lastTimestamp;
+        long remainingMs = PVP_KILL_COOLDOWN_MS - elapsed;
+        if (remainingMs <= 0L) {
+            pvpKillCooldownMap.remove(key);
+            return 0;
+        }
+        return (int) Math.ceil(remainingMs / 1000.0);
+    }
+
+    /**
+     * Informa se o abate recem-processado em recordPvpKillAndDeath concedeu pontos/recompensa
+     * (usado pelo QuestListener no mesmo evento de morte).
+     */
+    public boolean wasLastKillRewarded(UUID killerId, UUID victimId) {
+        if (killerId == null || victimId == null) {
+            return false;
+        }
+        return lastKillRewardedMap.getOrDefault(toKillPairKey(killerId, victimId), false);
+    }
+
     /**
      * Contabiliza 1 kill para o assassino e 1 morte para a vitima (em PvP entre equipes diferentes),
      * somando +20 pontos na equipe do assassino e descontando -10 pontos da equipe da vitima.
      * Ambos os jogadores devem pertencer a times diferentes (jogadores sem time ou do mesmo time nao contam).
+     * Possui cooldown de 10 minutos para o mesmo par (assassino -> vitima).
      */
     public void recordPvpKillAndDeath(UUID killerId, UUID victimId) {
         if (killerId == null || victimId == null || killerId.equals(victimId)) {
             return;
         }
 
+        String pairKey = toKillPairKey(killerId, victimId);
         Team killerTeam = getPlayerTeam(killerId);
         Team victimTeam = getPlayerTeam(victimId);
 
         // A contagem de PvP e pontuacao so ocorre se AMBOS tiverem time e forem de times diferentes
         if (killerTeam == null || victimTeam == null || killerTeam.equals(victimTeam)) {
+            lastKillRewardedMap.put(pairKey, false);
             return;
         }
 
@@ -382,6 +433,21 @@ public class TeamManager {
         Player victimPlayer = Bukkit.getPlayer(victimId);
         String killerName = killerPlayer != null ? killerPlayer.getName() : "inimigo";
         String victimName = victimPlayer != null ? victimPlayer.getName() : "inimigo";
+
+        int remainingSec = getPvpKillCooldownRemainingSeconds(killerId, victimId);
+        if (remainingSec > 0) {
+            lastKillRewardedMap.put(pairKey, false);
+            if (killerPlayer != null && killerPlayer.isOnline()) {
+                int mins = remainingSec / 60;
+                int secs = remainingSec % 60;
+                String timeStr = mins > 0 ? (mins + "m " + secs + "s") : (secs + "s");
+                killerPlayer.sendMessage(Component.text("⏳ Voce ja abateu " + victimName + " nos ultimos 10 minutos! Pontos de PvP e progresso de quest contra este jogador estarao disponiveis novamente em " + timeStr + ".", NamedTextColor.RED));
+            }
+            return;
+        }
+
+        pvpKillCooldownMap.put(pairKey, System.currentTimeMillis());
+        lastKillRewardedMap.put(pairKey, true);
 
         // 1. Atualiza estatisticas e +20 pontos do time do assassino
         PlayerStats killerStats = getPlayerStats(killerId);

@@ -161,7 +161,7 @@ public class CombatListener implements Listener {
         quitter.setHealth(0.0);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player victim = event.getPlayer();
         Player directKiller = victim.getKiller();

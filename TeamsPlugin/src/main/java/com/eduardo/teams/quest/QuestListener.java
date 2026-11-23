@@ -247,6 +247,9 @@ public class QuestListener implements Listener {
         if (teamManager.isSameTeam(killer.getUniqueId(), victim.getUniqueId())) {
             return;
         }
+        if (!teamManager.wasLastKillRewarded(killer.getUniqueId(), victim.getUniqueId())) {
+            return;
+        }
 
         questManager.recordAction(killer, QuestActionType.KILL_ENEMY_ANY, null, null, 1);
 

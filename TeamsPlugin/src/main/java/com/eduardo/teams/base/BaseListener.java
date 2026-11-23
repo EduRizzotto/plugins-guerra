@@ -135,12 +135,20 @@ public class BaseListener implements Listener {
             return;
         }
 
+        Team playerTeam = teamManager.getPlayerTeam(player.getUniqueId());
+        boolean isEnemyBase = (playerTeam == null || !base.getTeamKey().equalsIgnoreCase(playerTeam.getName()));
+
+        if (type == Material.RESPAWN_ANCHOR && isEnemyBase) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("🔒 Você não pode colocar Âncora de Renascimento dentro de uma base inimiga!", NamedTextColor.RED));
+            return;
+        }
+
         if (type != Material.TNT) {
             // Qualquer outro bloco e 100% permitido!
             return;
         }
 
-        Team playerTeam = teamManager.getPlayerTeam(player.getUniqueId());
         if (playerTeam == null) {
             event.setCancelled(true);
             player.sendMessage(Component.text("💣 Você precisa estar em um time para colocar TNT dentro de uma base!", NamedTextColor.RED));
@@ -176,14 +184,36 @@ public class BaseListener implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null) {
             return;
         }
+        Block clickedBlock = event.getClickedBlock();
         ItemStack item = event.getItem();
-        if (item == null || item.getType() != Material.TNT_MINECART) {
+        TeamBase base = baseManager.getBaseAt(clickedBlock.getLocation());
+        if (base == null) {
+            base = baseManager.getBaseAt(clickedBlock.getRelative(event.getBlockFace()).getLocation());
+        }
+        if (base == null) {
             return;
         }
-        TeamBase base = baseManager.getBaseAt(event.getClickedBlock().getLocation());
-        if (base != null) {
+
+        if (item != null && item.getType() == Material.TNT_MINECART) {
             event.setCancelled(true);
             event.getPlayer().sendMessage(Component.text("💣 Carrinhos com TNT não são permitidos dentro da área protegida da base! Use TNT normal (máx. 5 por time).", NamedTextColor.RED));
+            return;
+        }
+
+        Player player = event.getPlayer();
+        Team playerTeam = teamManager.getPlayerTeam(player.getUniqueId());
+        boolean isEnemyBase = (playerTeam == null || !base.getTeamKey().equalsIgnoreCase(playerTeam.getName()));
+
+        if (isEnemyBase) {
+            if (item != null && item.getType() == Material.END_CRYSTAL) {
+                event.setCancelled(true);
+                player.sendMessage(Component.text("🔒 Você não pode colocar Cristal do End dentro de uma base inimiga!", NamedTextColor.RED));
+                return;
+            }
+            if (clickedBlock.getType() == Material.RESPAWN_ANCHOR) {
+                event.setCancelled(true);
+                player.sendMessage(Component.text("🔒 Você não pode usar Âncora de Renascimento dentro de uma base inimiga!", NamedTextColor.RED));
+            }
         }
     }
 

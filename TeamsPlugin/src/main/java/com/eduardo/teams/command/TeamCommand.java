@@ -408,6 +408,17 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        int leaderCombatSec = teamManager.getCombatRemainingSeconds(player.getUniqueId());
+        if (leaderCombatSec > 0) {
+            player.sendMessage(Component.text("⚔ Voce nao pode expulsar membros enquanto estiver em combate PvP! Aguarde " + leaderCombatSec + "s.", NamedTextColor.RED));
+            return;
+        }
+        int targetCombatSec = teamManager.getCombatRemainingSeconds(targetId);
+        if (targetCombatSec > 0) {
+            player.sendMessage(Component.text("⚔ Voce nao pode expulsar esse membro enquanto ele estiver em combate PvP! Aguarde " + targetCombatSec + "s.", NamedTextColor.RED));
+            return;
+        }
+
         OfflinePlayer targetOffline = Bukkit.getOfflinePlayer(targetId);
         String targetName = targetOffline.getName() != null ? targetOffline.getName() : args[1];
 
@@ -461,6 +472,12 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        int combatSec = teamManager.getCombatRemainingSeconds(player.getUniqueId());
+        if (combatSec > 0) {
+            player.sendMessage(Component.text("⚔ Voce nao pode sair do time enquanto estiver em combate PvP! Aguarde " + combatSec + "s.", NamedTextColor.RED));
+            return;
+        }
+
         teamManager.removeMember(team, player.getUniqueId());
         player.sendMessage(Component.text("Voce saiu do time " + team.getName() + ".", NamedTextColor.YELLOW));
         broadcastToTeam(
@@ -478,6 +495,21 @@ public class TeamCommand implements CommandExecutor, TabCompleter {
         if (!team.isLeader(player.getUniqueId())) {
             player.sendMessage(Component.text("Apenas o lider pode desfazer o time!", NamedTextColor.RED));
             return;
+        }
+
+        int leaderCombatSec = teamManager.getCombatRemainingSeconds(player.getUniqueId());
+        if (leaderCombatSec > 0) {
+            player.sendMessage(Component.text("⚔ Voce nao pode desfazer o time enquanto estiver em combate PvP! Aguarde " + leaderCombatSec + "s.", NamedTextColor.RED));
+            return;
+        }
+        for (UUID memberId : team.getMembers()) {
+            int memberCombatSec = teamManager.getCombatRemainingSeconds(memberId);
+            if (memberCombatSec > 0) {
+                OfflinePlayer memberOffline = Bukkit.getOfflinePlayer(memberId);
+                String memberName = memberOffline.getName() != null ? memberOffline.getName() : "Um membro";
+                player.sendMessage(Component.text("⚔ Voce nao pode desfazer o time enquanto " + memberName + " estiver em combate PvP! Aguarde " + memberCombatSec + "s.", NamedTextColor.RED));
+                return;
+            }
         }
 
         broadcastToTeam(
