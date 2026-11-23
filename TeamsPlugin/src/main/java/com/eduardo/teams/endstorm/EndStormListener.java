@@ -30,28 +30,18 @@ public class EndStormListener implements Listener {
         this.stormManager = stormManager;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onCrystalDamageByEntity(EntityDamageByEntityEvent event) {
-        if (!stormManager.isActive()) {
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onCrystalDamage(EntityDamageEvent event) {
+        if (!stormManager.isActive() || !stormManager.isRiftCrystal(event.getEntity())) {
             return;
         }
-        Entity victim = event.getEntity();
-        if (!stormManager.isRiftCrystal(victim)) {
-            return;
-        }
-
         // Cancela a explosao vanilla do End Crystal e processa HP customizado
         event.setCancelled(true);
-        Player attacker = resolveAttacker(event.getDamager());
-        if (attacker != null) {
-            stormManager.handleCrystalHit(attacker, event.getDamage());
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onCrystalAnyDamage(EntityDamageEvent event) {
-        if (stormManager.isActive() && stormManager.isRiftCrystal(event.getEntity())) {
-            event.setCancelled(true);
+        if (event instanceof EntityDamageByEntityEvent byEntity) {
+            Player attacker = resolveAttacker(byEntity.getDamager());
+            if (attacker != null) {
+                stormManager.handleCrystalHit(attacker, event.getDamage());
+            }
         }
     }
 
