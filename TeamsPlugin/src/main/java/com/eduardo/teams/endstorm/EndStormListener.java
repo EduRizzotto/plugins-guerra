@@ -5,6 +5,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Shulker;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -66,6 +67,11 @@ public class EndStormListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onGuardianTeleportFar(EntityTeleportEvent event) {
         if (!stormManager.isActive() || !stormManager.isRiftGuardian(event.getEntity())) {
+            return;
+        }
+        // Impede que Sentinelas Shulker se teleportem para longe dos pedestais da cratera
+        if (event.getEntity() instanceof Shulker) {
+            event.setCancelled(true);
             return;
         }
         Location center = stormManager.getBaseCenter();

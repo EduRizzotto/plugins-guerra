@@ -12,6 +12,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.DyeColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -22,6 +23,7 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.EnderCrystal;
@@ -99,6 +101,7 @@ public class EndStormManager {
 
     private final Map<Location, BlockData> originalBlocks = new LinkedHashMap<>();
     private final List<Location> fissureSpawnPoints = new ArrayList<>();
+    private final List<Location> shulkerSentryPoints = new ArrayList<>();
     private final List<Location> fissureParticlePoints = new ArrayList<>();
     private final Set<UUID> activeGuardians = new HashSet<>();
     private final Map<UUID, Long> lastCrystalHitByPlayer = new HashMap<>();
@@ -233,7 +236,8 @@ public class EndStormManager {
 
         buildGiantEndRavineX(axisAngleRadians);
         spawnRiftCrystalAndHologram();
-        spawnGuardianWave(24);
+        spawnGuaranteedShulkers(8);
+        spawnGuardianWave(18);
 
         this.bossBar = BossBar.bossBar(
                 buildBossBarTitle(),
@@ -256,6 +260,7 @@ public class EndStormManager {
     private void buildGiantEndRavineX(double baseAngleRad) {
         originalBlocks.clear();
         fissureSpawnPoints.clear();
+        shulkerSentryPoints.clear();
         fissureParticlePoints.clear();
 
         World world = baseCenter.getWorld();
@@ -462,6 +467,19 @@ public class EndStormManager {
 
         this.crystalLocation = new Location(world, cx + 0.5, pedestalTopY + 1.0, cz + 0.5);
 
+        // Constroi 4 pedestais de Purpur na cratera central do X + 8 pedestais ao longo dos 4 bracos para Sentinelas Shulker
+        int[][] centralShulkerOffsets = {{-6, -6}, {6, -6}, {-6, 6}, {6, 6}};
+        for (int[] off : centralShulkerOffsets) {
+            int px = cx + off[0];
+            int pz = cz + off[1];
+            int py = baseCy - 4;
+            setRavineBlock(world, px, py - 1, pz, Material.OBSIDIAN);
+            setRavineBlock(world, px, py, pz, Material.PURPUR_BLOCK);
+            setRavineBlock(world, px, py + 1, pz, Material.AIR);
+            setRavineBlock(world, px, py + 2, pz, Material.AIR);
+            shulkerSentryPoints.add(new Location(world, px + 0.5, py + 1.0, pz + 0.5));
+        }
+
         // Coleta pontos seguros de spawn de mobs ao longo de todos os 4 bracos do X (no fundo e nas bordas)
         for (int arm = 0; arm < armAngles.length; arm++) {
             double angle = armAngles[arm];
@@ -470,6 +488,21 @@ public class EndStormManager {
             double perpX = -dirZ;
             double perpZ = dirX;
             double phaseShift = arm * 1.1;
+
+            // Pedestais de Shulker garantidos ao longo de cada braco do X (em +-20 e +-45 blocos do centro)
+            for (int st : new int[]{-45, -20, 20, 45}) {
+                double centerPinch = Math.min(1.0, Math.abs(st) / 10.0);
+                double sway = (Math.sin(st * 0.08 + phaseShift) * 4.5 + Math.sin(st * 0.23 - phaseShift) * 1.6) * centerPinch;
+                int px = (int) Math.round(cx + st * dirX + sway * perpX);
+                int pz = (int) Math.round(cz + st * dirZ + sway * perpZ);
+                ensureChunkLoaded(world, px >> 4, pz >> 4);
+                int py = baseCy - RAVINE_MAX_DEPTH + 3;
+                setRavineBlock(world, px, py - 1, pz, Material.OBSIDIAN);
+                setRavineBlock(world, px, py, pz, Material.PURPUR_BLOCK);
+                setRavineBlock(world, px, py + 1, pz, Material.AIR);
+                setRavineBlock(world, px, py + 2, pz, Material.AIR);
+                shulkerSentryPoints.add(new Location(world, px + 0.5, py + 1.0, pz + 0.5));
+            }
 
             for (int t = -RAVINE_HALF_LENGTH + 5; t <= RAVINE_HALF_LENGTH - 5; t += 5) {
                 double norm = Math.abs(t) / (double) RAVINE_HALF_LENGTH;
@@ -739,6 +772,49 @@ public class EndStormManager {
     }
 
     /**
+     * Spawna Sentinelas Shulker garantidos nos pedestais de Purpur da cratera central e dos 4 bracos do X.
+     */
+    private void spawnGuaranteedShulkers(int count) {
+        if (!active || baseCenter == null || shulkerSentryPoints.isEmpty()) {
+            return;
+        }
+        int limit = Math.min(count, shulkerSentryPoints.size());
+        for (int i = 0; i < limit; i++) {
+            if (activeGuardians.size() >= MAX_ACTIVE_GUARDIANS) {
+                break;
+            }
+            spawnShulkerAt(shulkerSentryPoints.get(i));
+        }
+    }
+
+    private Shulker spawnShulkerAt(Location loc) {
+        World world = loc.getWorld();
+        if (world == null) {
+            return null;
+        }
+        ensureChunkLoaded(world, loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
+        // Garante bloco solido opaco logo abaixo para o Shulker se fixar perfeitamente
+        Block below = world.getBlockAt(loc.getBlockX(), loc.getBlockY() - 1, loc.getBlockZ());
+        if (!below.getType().isOccluding()) {
+            setRavineBlock(world, loc.getBlockX(), loc.getBlockY() - 1, loc.getBlockZ(), Material.PURPUR_BLOCK);
+        }
+        Location snapped = new Location(world, loc.getBlockX() + 0.5, loc.getBlockY(), loc.getBlockZ() + 0.5);
+        Shulker shulker = world.spawn(snapped, Shulker.class, sh -> {
+            sh.customName(Component.text("Sentinela Shulker ", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD)
+                    .append(Component.text("[+" + POINTS_KILL_SHULKER + " pts]", NamedTextColor.GOLD)));
+            sh.setCustomNameVisible(true);
+            sh.setColor(DyeColor.PURPLE);
+            sh.setAttachedFace(BlockFace.DOWN);
+            sh.setRemoveWhenFarAway(false);
+            sh.setPersistent(false);
+            sh.getPersistentDataContainer().set(guardianPointKey, PersistentDataType.INTEGER, POINTS_KILL_SHULKER);
+        });
+        activeGuardians.add(shulker.getUniqueId());
+        world.spawnParticle(Particle.PORTAL, snapped.clone().add(0, 0.8, 0), 20, 0.35, 0.5, 0.35, 0.2);
+        return shulker;
+    }
+
+    /**
      * Spawna mobs do End espalhados pelos 4 bracos da fenda em X de 200 blocos.
      */
     public void spawnGuardianWave(int count) {
@@ -767,7 +843,7 @@ public class EndStormManager {
 
             double roll = rng.nextDouble();
             LivingEntity mob;
-            if (roll < 0.58) {
+            if (roll < 0.55) {
                 mob = world.spawn(spawnLoc, Enderman.class, em -> {
                     em.customName(Component.text("Guardião da Fenda ", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD)
                             .append(Component.text("[+" + POINTS_KILL_ENDERMAN + " pts]", NamedTextColor.LIGHT_PURPLE)));
@@ -781,15 +857,13 @@ public class EndStormManager {
                     }
                     em.getPersistentDataContainer().set(guardianPointKey, PersistentDataType.INTEGER, POINTS_KILL_ENDERMAN);
                 });
-            } else if (roll < 0.80) {
-                mob = world.spawn(spawnLoc, Shulker.class, sh -> {
-                    sh.customName(Component.text("Sentinela Shulker ", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD)
-                            .append(Component.text("[+" + POINTS_KILL_SHULKER + " pts]", NamedTextColor.GOLD)));
-                    sh.setCustomNameVisible(true);
-                    sh.setRemoveWhenFarAway(false);
-                    sh.setPersistent(false);
-                    sh.getPersistentDataContainer().set(guardianPointKey, PersistentDataType.INTEGER, POINTS_KILL_SHULKER);
-                });
+                activeGuardians.add(mob.getUniqueId());
+                world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, 1, 0), 25, 0.4, 0.8, 0.4, 0.2);
+            } else if (roll < 0.82) {
+                Location shulkerLoc = !shulkerSentryPoints.isEmpty()
+                        ? shulkerSentryPoints.get(rng.nextInt(shulkerSentryPoints.size()))
+                        : spawnLoc;
+                spawnShulkerAt(shulkerLoc);
             } else {
                 mob = world.spawn(spawnLoc, Endermite.class, mite -> {
                     mite.customName(Component.text("Parasita do Vazio ", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD)
@@ -804,10 +878,9 @@ public class EndStormManager {
                     }
                     mite.getPersistentDataContainer().set(guardianPointKey, PersistentDataType.INTEGER, POINTS_KILL_ENDERMITE);
                 });
+                activeGuardians.add(mob.getUniqueId());
+                world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, 1, 0), 25, 0.4, 0.8, 0.4, 0.2);
             }
-
-            activeGuardians.add(mob.getUniqueId());
-            world.spawnParticle(Particle.PORTAL, spawnLoc.clone().add(0, 1, 0), 25, 0.4, 0.8, 0.4, 0.2);
         }
         world.playSound(baseCenter, Sound.ENTITY_ENDERMAN_TELEPORT, 1.4f, 0.7f);
     }
@@ -1036,6 +1109,7 @@ public class EndStormManager {
         }
         originalBlocks.clear();
         fissureSpawnPoints.clear();
+        shulkerSentryPoints.clear();
         fissureParticlePoints.clear();
     }
 
