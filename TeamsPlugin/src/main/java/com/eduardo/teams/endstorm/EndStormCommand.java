@@ -63,10 +63,10 @@ public class EndStormCommand implements CommandExecutor, TabCompleter {
                     dir.normalize();
                 }
                 double axisAngle = Math.atan2(dir.getZ(), dir.getX());
-                // Posiciona o centro da ravina 44 blocos a frente para que a ponta da fenda de 80 blocos comece a ~4 blocos dos pes do ADM
-                Location target = player.getLocation().add(dir.clone().multiply(EndStormManager.RAVINE_HALF_LENGTH + 4)).toBlockLocation();
+                // Posiciona o centro do X 28 blocos a frente do ADM
+                Location target = player.getLocation().add(dir.clone().multiply(28)).toBlockLocation();
                 stormManager.startStormAt(target, axisAngle);
-                player.sendMessage(Component.text("🌌 Ravina da Tempestade do End (80 blocos) rasgada na sua frente!", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
+                player.sendMessage(Component.text("🌌 Ravina da Tempestade do End em formato de X (200 blocos) rasgada na sua frente!", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
             }
             case "status", "info" -> {
                 if (!stormManager.isActive()) {

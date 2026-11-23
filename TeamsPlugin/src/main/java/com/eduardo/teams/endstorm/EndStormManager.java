@@ -51,11 +51,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Gerencia o evento Tempestade do End / Fenda do Vazio (/tempestadeend):
- * - Rasga literalmente uma ravina/fenda gigantesca no chao (~80 blocos de comprimento
- *   por ~10 a 12 blocos de profundidade), com End Stone, Obsidian, Crying Obsidian,
- *   Purpur, fendas luminosas do Vazio no fundo e corrupcao do End saindo para fora da terra.
- * - No centro da ravina ergue-se o Altar com o Cristal da Fenda (500 HP).
- * - Por toda a extensao dos 80 blocos da rachadura nascem os mobs do End
+ * - Rasga literalmente uma ravina/fenda gigantesca no chao em formato de X (4 lados),
+ *   com 200 blocos de comprimento em cada diagonal (-100..+100) e ~10 a 11 blocos de fundura,
+ *   como se o End estivesse saindo de dentro do mundo.
+ * - Jogadores podem colocar e quebrar blocos livremente na estrutura.
+ * - No centro do X ergue-se o Altar com o Cristal da Fenda (500 HP).
+ * - Por toda a extensao dos 4 bracos da rachadura nascem os mobs do End
  *   (Endermen da Fenda, Sentinelas Shulker e Parasitas Endermite).
  * - Restaura 100% do terreno original quando o evento termina.
  */
@@ -68,13 +69,15 @@ public class EndStormManager {
     public static final int POINTS_KILL_SHULKER = 5;
     public static final int POINTS_KILL_ENDERMITE = 2;
 
-    // Dimensoes da Fenda/Ravina do End: 80 blocos de comprimento (-40..+40) e ~10-11 blocos de fundura
-    public static final int RAVINE_HALF_LENGTH = 40; // 81 blocos de ponta a ponta
+    // 200 blocos de comprimento (-100..+100) em cada diagonal do X (4 lados de 100 blocos) e ~10-11 blocos de fundura
+    public static final int RAVINE_HALF_LENGTH = 100; // 201 blocos de ponta a ponta em cada eixo do X
     public static final int RAVINE_MAX_DEPTH = 11;
-    public static final int MIN_SPAWN_RADIUS = 180;
-    public static final int MAX_SPAWN_RADIUS = 700;
-    private static final int MAX_ACTIVE_GUARDIANS = 28;
+    public static final int MIN_SPAWN_RADIUS = 200;
+    public static final int MAX_SPAWN_RADIUS = 750;
+    private static final int MAX_ACTIVE_GUARDIANS = 36;
     private static final long CRYSTAL_HIT_COOLDOWN_MS = 350L;
+
+    private record ColumnSample(double sdf, double halfWidth, int depth, int refSurfaceY, int stepSeed) {}
 
     private final TeamsPlugin plugin;
     private final TeamManager teamManager;
@@ -95,7 +98,6 @@ public class EndStormManager {
     private BukkitTask tickTask;
 
     private final Map<Location, BlockData> originalBlocks = new LinkedHashMap<>();
-    private final Set<Location> protectedRegionBlocks = new HashSet<>();
     private final List<Location> fissureSpawnPoints = new ArrayList<>();
     private final List<Location> fissureParticlePoints = new ArrayList<>();
     private final Set<UUID> activeGuardians = new HashSet<>();
@@ -130,8 +132,25 @@ public class EndStormManager {
         return baseCenter != null ? baseCenter.clone() : null;
     }
 
-    public boolean isProtectedRiftBlock(Location loc) {
-        return active && loc != null && protectedRegionBlocks.contains(loc.toBlockLocation());
+    /**
+     * Salva o estado original de um bloco antes que um jogador coloque ou quebre blocos na area da Fenda,
+     * permitindo que jogadores construam/quebrem livremente durante o evento e ainda restaurando o mapa no final.
+     */
+    public void recordOriginalBlockBeforePlayerEdit(Block block) {
+        if (!active || block == null || baseCenter == null) {
+            return;
+        }
+        if (!block.getWorld().equals(baseCenter.getWorld())) {
+            return;
+        }
+        int dx = Math.abs(block.getX() - baseCenter.getBlockX());
+        int dz = Math.abs(block.getZ() - baseCenter.getBlockZ());
+        if (dx <= RAVINE_HALF_LENGTH + 20 && dz <= RAVINE_HALF_LENGTH + 20) {
+            Location loc = block.getLocation();
+            if (!originalBlocks.containsKey(loc)) {
+                originalBlocks.put(loc, block.getBlockData().clone());
+            }
+        }
     }
 
     public boolean isRiftCrystal(Entity entity) {
@@ -191,8 +210,8 @@ public class EndStormManager {
             return candidate;
         }
 
-        int fallbackX = spawn.getBlockX() + 240;
-        int fallbackZ = spawn.getBlockZ() + 240;
+        int fallbackX = spawn.getBlockX() + 260;
+        int fallbackZ = spawn.getBlockZ() + 260;
         Block highest = world.getHighestBlockAt(fallbackX, fallbackZ);
         Location fallback = highest.getLocation();
         startStormAt(fallback, 0.45);
@@ -212,9 +231,9 @@ public class EndStormManager {
         this.pointsEarnedInStormByTeam.clear();
         this.lastCrystalHitByPlayer.clear();
 
-        buildGiantEndRavine(axisAngleRadians);
+        buildGiantEndRavineX(axisAngleRadians);
         spawnRiftCrystalAndHologram();
-        spawnGuardianWave(16);
+        spawnGuardianWave(24);
 
         this.bossBar = BossBar.bossBar(
                 buildBossBarTitle(),
@@ -231,13 +250,11 @@ public class EndStormManager {
     }
 
     /**
-     * Escava uma ravina gigantesca de ~80 blocos de comprimento (-40..+40) e ~10-11 blocos de fundura,
-     * em formato de rachadura organica (S-curve), com paredes e fundo dominados pelo End saindo das profundezas,
-     * espinhos de obsidiana/purpur transbordando pelas bordas e o altar do Cristal da Fenda no centro da fenda.
+     * Escava uma ravina gigantesca em formato de X (4 bracos de 100 blocos = 200 blocos de ponta a ponta
+     * em cada diagonal, com ~10-11 blocos de fundura), onde as duas fendas de 200 blocos se cruzam no centro.
      */
-    private void buildGiantEndRavine(double angleRad) {
+    private void buildGiantEndRavineX(double baseAngleRad) {
         originalBlocks.clear();
-        protectedRegionBlocks.clear();
         fissureSpawnPoints.clear();
         fissureParticlePoints.clear();
 
@@ -251,185 +268,170 @@ public class EndStormManager {
         int cz = baseCenter.getBlockZ();
         this.baseCenter = new Location(world, cx, baseCy, cz);
 
-        double dirX = Math.cos(angleRad);
-        double dirZ = Math.sin(angleRad);
-        double perpX = -dirZ;
-        double perpZ = dirX;
-
-        // Garante que todas as chunks ao longo dos 80 blocos estejam carregadas
-        int minChunkX = (cx - RAVINE_HALF_LENGTH - 16) >> 4;
-        int maxChunkX = (cx + RAVINE_HALF_LENGTH + 16) >> 4;
-        int minChunkZ = (cz - RAVINE_HALF_LENGTH - 16) >> 4;
-        int maxChunkZ = (cz + RAVINE_HALF_LENGTH + 16) >> 4;
-        for (int chX = minChunkX; chX <= maxChunkX; chX++) {
-            for (int chZ = minChunkZ; chZ <= maxChunkZ; chZ++) {
-                if (!world.isChunkLoaded(chX, chZ)) {
-                    world.getChunkAt(chX, chZ).load();
-                }
-            }
-        }
+        // Duas diagonais de 200 blocos (-100..+100) formando um X de 4 lados (+/- 42 graus em relacao ao eixo)
+        double[] armAngles = new double[]{
+                baseAngleRad + Math.toRadians(42.0),
+                baseAngleRad - Math.toRadians(42.0)
+        };
 
         ThreadLocalRandom rng = ThreadLocalRandom.current();
+        Map<Long, ColumnSample> columnMap = new HashMap<>(24576);
 
-        // Pre-calcula a linha central sinuosa da ravina para cada passo t (-40..+40)
-        // para parecer uma ravina real rasgada no solo
-        int steps = RAVINE_HALF_LENGTH * 2 + 1;
-        double[] sliceCenterX = new double[steps];
-        double[] sliceCenterZ = new double[steps];
-        double[] sliceHalfWidth = new double[steps];
-        int[] sliceDepth = new int[steps];
-        int[] sliceSurfaceY = new int[steps];
+        int steps = RAVINE_HALF_LENGTH * 2 + 1; // 201 passos (-100..+100) por diagonal
 
-        for (int t = -RAVINE_HALF_LENGTH; t <= RAVINE_HALF_LENGTH; t++) {
-            int idx = t + RAVINE_HALF_LENGTH;
-            double norm = Math.abs(t) / (double) RAVINE_HALF_LENGTH; // 0 no centro, 1 nas pontas
+        for (int arm = 0; arm < armAngles.length; arm++) {
+            double angle = armAngles[arm];
+            double dirX = Math.cos(angle);
+            double dirZ = Math.sin(angle);
+            double perpX = -dirZ;
+            double perpZ = dirX;
+            double phaseShift = arm * 1.1;
 
-            // Curvatura estilo falha geologica / ravina antiga do Minecraft
-            double sway = Math.sin(t * 0.11) * 3.8 + Math.sin(t * 0.29) * 1.4;
-            double sx = cx + t * dirX + sway * perpX;
-            double sz = cz + t * dirZ + sway * perpZ;
-            sliceCenterX[idx] = sx;
-            sliceCenterZ[idx] = sz;
+            for (int t = -RAVINE_HALF_LENGTH; t <= RAVINE_HALF_LENGTH; t++) {
+                double norm = Math.abs(t) / (double) RAVINE_HALF_LENGTH; // 0.0 no centro, 1.0 nas pontas (100 blocos)
 
-            // Largura da ravina: mais larga no centro (~7.5 blocos p/ cada lado = ~15 de largura),
-            // afinando gradualmente ate fechar em fenda estreita nas pontas (-40 e +40)
-            double shapeProfile = Math.pow(Math.max(0.0, 1.0 - norm * norm), 0.65);
-            double jaggedNoise = Math.sin(t * 0.75) * 0.75 + Math.cos(t * 1.35) * 0.45;
-            double hw = Math.max(1.1, 1.0 + 6.4 * shapeProfile + jaggedNoise * (1.0 - 0.5 * norm));
-            if (Math.abs(t) <= 6) {
-                hw = Math.max(hw, 6.8); // Camara central para o Cristal da Fenda
-            }
-            sliceHalfWidth[idx] = hw;
+                // Sinuosidade organica de ravina que zera em t = 0 para os 4 bracos se cruzarem exatamente em (cx, cz)
+                double centerPinch = Math.min(1.0, Math.abs(t) / 10.0);
+                double sway = (Math.sin(t * 0.08 + phaseShift) * 4.5 + Math.sin(t * 0.23 - phaseShift) * 1.6) * centerPinch;
+                double sx = cx + t * dirX + sway * perpX;
+                double sz = cz + t * dirZ + sway * perpZ;
 
-            // Profundidade: 10 a 11 blocos na maior parte da fenda, subindo nas extremidades
-            int depth = (int) Math.round(3.0 + (RAVINE_MAX_DEPTH - 3.0) * Math.pow(Math.max(0.0, 1.0 - Math.pow(norm, 2.4)), 0.55));
-            if (Math.abs(t) <= 26) {
-                depth = Math.max(10, depth);
-            }
-            sliceDepth[idx] = depth;
+                int blockSx = (int) Math.round(sx);
+                int blockSz = (int) Math.round(sz);
+                ensureChunkLoaded(world, blockSx >> 4, blockSz >> 4);
 
-            int surfY = findGroundSurfaceY(world, (int) Math.round(sx), baseCy, (int) Math.round(sz));
-            // Limita variacao brusca para manter a fenda coesa
-            surfY = Math.max(baseCy - 5, Math.min(baseCy + 5, surfY));
-            sliceSurfaceY[idx] = surfY;
-        }
-
-        // Bounding box em X/Z para varrer cada coluna ao redor da ravina de 80 blocos
-        int boundRadius = RAVINE_HALF_LENGTH + 15;
-        for (int wx = cx - boundRadius; wx <= cx + boundRadius; wx++) {
-            for (int wz = cz - boundRadius; wz <= cz + boundRadius; wz++) {
-                // Encontra a fatia t (-40..+40) da linha central da ravina mais proxima de (wx, wz)
-                int bestIdx = -1;
-                double bestDistSq = Double.MAX_VALUE;
-                for (int i = 0; i < steps; i++) {
-                    double dx = wx - sliceCenterX[i];
-                    double dz = wz - sliceCenterZ[i];
-                    double dSq = dx * dx + dz * dz;
-                    if (dSq < bestDistSq) {
-                        bestDistSq = dSq;
-                        bestIdx = i;
-                    }
-                }
-                if (bestIdx < 0) {
-                    continue;
+                double shapeProfile = Math.pow(Math.max(0.0, 1.0 - norm * norm), 0.65);
+                double jaggedNoise = Math.sin(t * 0.65 + phaseShift) * 0.8 + Math.cos(t * 1.25) * 0.45;
+                double hw = Math.max(1.15, 1.1 + 6.4 * shapeProfile + jaggedNoise * (1.0 - 0.5 * norm));
+                if (Math.abs(t) <= 7) {
+                    hw = Math.max(hw, 7.2); // Cruzamento central do X para o Cristal da Fenda
                 }
 
-                double distFromSpine = Math.sqrt(bestDistSq);
-                double topHalfWidth = sliceHalfWidth[bestIdx];
-                double rimOuterRadius = topHalfWidth + 4.2;
-                if (distFromSpine > rimOuterRadius) {
-                    continue;
+                int depth = (int) Math.round(3.0 + (RAVINE_MAX_DEPTH - 3.0) * Math.pow(Math.max(0.0, 1.0 - Math.pow(norm, 2.5)), 0.55));
+                if (Math.abs(t) <= 75) {
+                    depth = Math.max(10, depth);
                 }
 
-                int surfY = findGroundSurfaceY(world, wx, sliceSurfaceY[bestIdx], wz);
-                surfY = Math.max(sliceSurfaceY[bestIdx] - 3, Math.min(sliceSurfaceY[bestIdx] + 4, surfY));
-                int maxDepthHere = sliceDepth[bestIdx];
+                int sliceSurfY = findGroundSurfaceY(world, blockSx, baseCy, blockSz);
+                sliceSurfY = Math.max(baseCy - 6, Math.min(baseCy + 6, sliceSurfY));
 
-                // Caso 1: Coluna esta DENTRO da boca da ravina (distFromSpine <= topHalfWidth)
-                if (distFromSpine <= topHalfWidth) {
-                    // Limpa arvores/blocos logo acima da abertura da fenda para o ceu ficar aberto
-                    for (int y = surfY + 1; y <= surfY + 8; y++) {
-                        Block above = world.getBlockAt(wx, y, wz);
-                        if (!above.getType().isAir()) {
-                            setRavineBlock(world, wx, y, wz, Material.AIR);
+                double outerRadius = hw + 4.2;
+                int minWx = (int) Math.floor(sx - outerRadius);
+                int maxWx = (int) Math.ceil(sx + outerRadius);
+                int minWz = (int) Math.floor(sz - outerRadius);
+                int maxWz = (int) Math.ceil(sz + outerRadius);
+                int stepSeed = (t + RAVINE_HALF_LENGTH) + arm * 313;
+
+                for (int wx = minWx; wx <= maxWx; wx++) {
+                    for (int wz = minWz; wz <= maxWz; wz++) {
+                        double dist = Math.hypot(wx - sx, wz - sz);
+                        if (dist > outerRadius) {
+                            continue;
+                        }
+                        // SDF: negativo dentro da fenda, positivo na borda externa.
+                        // Usar o menor SDF une perfeitamente as duas ravinas de 200 blocos no cruzamento em X!
+                        double sdf = dist - hw;
+                        long key = packXZ(wx, wz);
+                        ColumnSample prev = columnMap.get(key);
+                        if (prev == null || sdf < prev.sdf()) {
+                            columnMap.put(key, new ColumnSample(sdf, hw, depth, sliceSurfY, stepSeed));
                         }
                     }
+                }
 
-                    // A ravina afunila levemente conforme desce (paredes inclinadas e irregulares de ravina)
-                    for (int d = 0; d <= maxDepthHere; d++) {
-                        int y = surfY - d;
-                        double depthRatio = d / (double) Math.max(1, maxDepthHere);
-                        // Largura na profundidade d (inclui degraus/saliencias nas paredes)
-                        double ledgeWave = Math.sin(d * 1.15 + bestIdx * 0.4) * 0.55;
-                        double widthAtDepth = topHalfWidth * (1.0 - 0.34 * depthRatio) + ledgeWave;
+                // Registra pontos de spawn e particulas ao longo de todos os 4 bracos do X
+                if (t >= -RAVINE_HALF_LENGTH + 4 && t <= RAVINE_HALF_LENGTH - 4 && t % 5 == 0) {
+                    fissureParticlePoints.add(new Location(world, blockSx + 0.5, sliceSurfY - depth + 1.5, blockSz + 0.5));
+                }
+            }
+        }
 
-                        if (d < maxDepthHere && distFromSpine <= widthAtDepth - 1.15) {
-                            // Interior escavado da ravina (ar aberto ate 10-11 blocos de fundura!)
-                            setRavineBlock(world, wx, y, wz, Material.AIR);
-                        } else if (d == maxDepthHere || distFromSpine <= widthAtDepth) {
-                            // Paredes da ravina ou fundo da fenda: O End emergindo de dentro da Terra!
-                            boolean isBottomFloor = (d >= maxDepthHere - 1) || (distFromSpine <= 1.45 && d >= maxDepthHere - 2);
-                            if (isBottomFloor) {
-                                // Fundo da ravina: veio luminoso do Vazio no centro + End Stone / Obsidian / Purpur
-                                if (distFromSpine <= 1.35) {
-                                    setRavineBlock(world, wx, y - 1, wz,
-                                            rng.nextDouble() < 0.7 ? Material.SEA_LANTERN : Material.CRYING_OBSIDIAN);
-                                    setRavineBlock(world, wx, y, wz,
-                                            rng.nextBoolean() ? Material.PURPLE_STAINED_GLASS : Material.MAGENTA_STAINED_GLASS);
-                                } else {
-                                    setRavineBlock(world, wx, y, wz, pickEndRavineMaterial(rng, true));
-                                    setRavineBlock(world, wx, y - 1, wz, Material.OBSIDIAN);
-                                }
+        // Escava e decora todas as colunas das 2 diagonais de 200 blocos do X
+        for (Map.Entry<Long, ColumnSample> entry : columnMap.entrySet()) {
+            long packed = entry.getKey();
+            int wx = unpackX(packed);
+            int wz = unpackZ(packed);
+            ColumnSample sample = entry.getValue();
+
+            ensureChunkLoaded(world, wx >> 4, wz >> 4);
+
+            double topHalfWidth = sample.halfWidth();
+            double distFromSpine = topHalfWidth + sample.sdf();
+            int maxDepthHere = sample.depth();
+            int surfY = findGroundSurfaceY(world, wx, sample.refSurfaceY(), wz);
+            surfY = Math.max(sample.refSurfaceY() - 3, Math.min(sample.refSurfaceY() + 4, surfY));
+
+            if (sample.sdf() <= 0.0) {
+                // Dentro da boca da ravina em X
+                for (int y = surfY + 1; y <= surfY + 8; y++) {
+                    Block above = world.getBlockAt(wx, y, wz);
+                    if (!above.getType().isAir()) {
+                        setRavineBlock(world, wx, y, wz, Material.AIR);
+                    }
+                }
+
+                for (int d = 0; d <= maxDepthHere; d++) {
+                    int y = surfY - d;
+                    double depthRatio = d / (double) Math.max(1, maxDepthHere);
+                    double ledgeWave = Math.sin(d * 1.15 + sample.stepSeed() * 0.4) * 0.55;
+                    double widthAtDepth = topHalfWidth * (1.0 - 0.34 * depthRatio) + ledgeWave;
+
+                    if (d < maxDepthHere && distFromSpine <= widthAtDepth - 1.15) {
+                        setRavineBlock(world, wx, y, wz, Material.AIR);
+                    } else if (d == maxDepthHere || distFromSpine <= widthAtDepth) {
+                        boolean isBottomFloor = (d >= maxDepthHere - 1) || (distFromSpine <= 1.45 && d >= maxDepthHere - 2);
+                        if (isBottomFloor) {
+                            if (distFromSpine <= 1.35) {
+                                setRavineBlock(world, wx, y - 1, wz,
+                                        rng.nextDouble() < 0.7 ? Material.SEA_LANTERN : Material.CRYING_OBSIDIAN);
+                                setRavineBlock(world, wx, y, wz,
+                                        rng.nextBoolean() ? Material.PURPLE_STAINED_GLASS : Material.MAGENTA_STAINED_GLASS);
                             } else {
-                                // Paredes rasgadas da ravina (End Stone, Obsidian, Crying Obsidian, End Stone Bricks, Purpur)
-                                Material wallMat = pickEndRavineMaterial(rng, false);
-                                setRavineBlock(world, wx, y, wz, wallMat);
-
-                                // Cristais / End Rods brotando das paredes internas da ravina
-                                if (d >= 2 && d <= maxDepthHere - 2 && rng.nextDouble() < 0.045) {
-                                    Block inward = world.getBlockAt(wx, y + 1, wz);
-                                    if (inward.getType().isAir()) {
-                                        setRavineBlock(world, wx, y + 1, wz, Material.END_ROD);
-                                    }
-                                }
+                                setRavineBlock(world, wx, y, wz, pickEndRavineMaterial(rng, true));
+                                setRavineBlock(world, wx, y - 1, wz, Material.OBSIDIAN);
                             }
                         } else {
-                            // Camada externa da parede da ravina cravada na pedra do Overworld
-                            if (distFromSpine <= widthAtDepth + 1.15) {
-                                setRavineBlock(world, wx, y, wz, pickEndRavineMaterial(rng, false));
-                            }
-                        }
-                    }
-                } else {
-                    // Caso 2: Borda externa / labio da fenda (End transbordando para fora da rachadura!)
-                    double rimDist = distFromSpine - topHalfWidth; // 0.0 a 4.2 blocos da borda
-                    double corruptionChance = Math.max(0.0, 1.0 - (rimDist / 4.0));
-                    if (rng.nextDouble() < corruptionChance * 0.85) {
-                        Material rimMat = pickEndRavineMaterial(rng, false);
-                        setRavineBlock(world, wx, surfY, wz, rimMat);
-                        if (rimDist <= 1.6) {
-                            setRavineBlock(world, wx, surfY - 1, wz, Material.END_STONE);
-                        }
+                            Material wallMat = pickEndRavineMaterial(rng, false);
+                            setRavineBlock(world, wx, y, wz, wallMat);
 
-                        // Espinhos de Obsidian / Crying Obsidian / Purpur saindo de dentro da fenda nas bordas
-                        if (rimDist <= 1.8 && rng.nextDouble() < 0.085) {
-                            int spikeHeight = rng.nextInt(2, 5);
-                            for (int sh = 1; sh <= spikeHeight; sh++) {
-                                Material spikeMat = (sh == spikeHeight)
-                                        ? Material.END_ROD
-                                        : (rng.nextBoolean() ? Material.OBSIDIAN : Material.CRYING_OBSIDIAN);
-                                setRavineBlock(world, wx, surfY + sh, wz, spikeMat);
+                            if (d >= 2 && d <= maxDepthHere - 2 && rng.nextDouble() < 0.045) {
+                                Block inward = world.getBlockAt(wx, y + 1, wz);
+                                if (inward.getType().isAir()) {
+                                    setRavineBlock(world, wx, y + 1, wz, Material.END_ROD);
+                                }
                             }
+                        }
+                    } else if (distFromSpine <= widthAtDepth + 1.15) {
+                        setRavineBlock(world, wx, y, wz, pickEndRavineMaterial(rng, false));
+                    }
+                }
+            } else {
+                // Borda externa / labio da fenda em X (End transbordando para fora)
+                double rimDist = sample.sdf();
+                double corruptionChance = Math.max(0.0, 1.0 - (rimDist / 4.0));
+                if (rng.nextDouble() < corruptionChance * 0.85) {
+                    Material rimMat = pickEndRavineMaterial(rng, false);
+                    setRavineBlock(world, wx, surfY, wz, rimMat);
+                    if (rimDist <= 1.6) {
+                        setRavineBlock(world, wx, surfY - 1, wz, Material.END_STONE);
+                    }
+
+                    if (rimDist <= 1.8 && rng.nextDouble() < 0.08) {
+                        int spikeHeight = rng.nextInt(2, 5);
+                        for (int sh = 1; sh <= spikeHeight; sh++) {
+                            Material spikeMat = (sh == spikeHeight)
+                                    ? Material.END_ROD
+                                    : (rng.nextBoolean() ? Material.OBSIDIAN : Material.CRYING_OBSIDIAN);
+                            setRavineBlock(world, wx, surfY + sh, wz, spikeMat);
                         }
                     }
                 }
             }
         }
 
-        // Constroi o Altar/Monolito central dentro da ravina (em t = 0) para o Cristal da Fenda
-        int centerDepth = sliceDepth[RAVINE_HALF_LENGTH];
-        int floorY = baseCy - centerDepth;
-        int pedestalTopY = baseCy - 3; // Fica dentro da fenda, visivel de cima e acessivel por baixo!
+        // Constroi o Altar/Monolito central no cruzamento do X (em cx, cz) para o Cristal da Fenda
+        int floorY = baseCy - RAVINE_MAX_DEPTH;
+        int pedestalTopY = baseCy - 3;
 
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
@@ -444,7 +446,6 @@ public class EndStormManager {
                 }
             }
         }
-        // Topo do pedestal do Cristal da Fenda
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 setRavineBlock(world, cx + dx, pedestalTopY, cz + dz, Material.PURPUR_BLOCK);
@@ -461,40 +462,64 @@ public class EndStormManager {
 
         this.crystalLocation = new Location(world, cx + 0.5, pedestalTopY + 1.0, cz + 0.5);
 
-        // Registra pontos de spawn de mobs e particulas ao longo de TODOS os 80 blocos da rachadura!
-        for (int t = -RAVINE_HALF_LENGTH + 3; t <= RAVINE_HALF_LENGTH - 3; t += 3) {
-            int idx = t + RAVINE_HALF_LENGTH;
-            int sx = (int) Math.round(sliceCenterX[idx]);
-            int sz = (int) Math.round(sliceCenterZ[idx]);
-            int sSurfY = sliceSurfaceY[idx];
-            int sDepth = sliceDepth[idx];
-            double hw = sliceHalfWidth[idx];
+        // Coleta pontos seguros de spawn de mobs ao longo de todos os 4 bracos do X (no fundo e nas bordas)
+        for (int arm = 0; arm < armAngles.length; arm++) {
+            double angle = armAngles[arm];
+            double dirX = Math.cos(angle);
+            double dirZ = Math.sin(angle);
+            double perpX = -dirZ;
+            double perpZ = dirX;
+            double phaseShift = arm * 1.1;
 
-            // Ponto de particulas subindo do fundo da fenda
-            fissureParticlePoints.add(new Location(world, sx + 0.5, sSurfY - sDepth + 1.5, sz + 0.5));
+            for (int t = -RAVINE_HALF_LENGTH + 5; t <= RAVINE_HALF_LENGTH - 5; t += 5) {
+                double norm = Math.abs(t) / (double) RAVINE_HALF_LENGTH;
+                double centerPinch = Math.min(1.0, Math.abs(t) / 10.0);
+                double sway = (Math.sin(t * 0.08 + phaseShift) * 4.5 + Math.sin(t * 0.23 - phaseShift) * 1.6) * centerPinch;
+                int sx = (int) Math.round(cx + t * dirX + sway * perpX);
+                int sz = (int) Math.round(cz + t * dirZ + sway * perpZ);
 
-            // 1. Ponto de spawn no FUNDO da ravina (se nao estiver em cima do pilar central)
-            if (Math.abs(t) >= 4) {
-                Location bottomSpawn = findSafeMobFloor(world, sx, sSurfY - sDepth + 1, sz, sSurfY);
-                if (bottomSpawn != null) {
-                    fissureSpawnPoints.add(bottomSpawn);
+                double shapeProfile = Math.pow(Math.max(0.0, 1.0 - norm * norm), 0.65);
+                double hw = Math.max(1.2, 1.1 + 6.4 * shapeProfile);
+
+                if (Math.abs(t) >= 5) {
+                    Location bottomSpawn = findSafeMobFloor(world, sx, baseCy - RAVINE_MAX_DEPTH + 1, sz, baseCy);
+                    if (bottomSpawn != null) {
+                        fissureSpawnPoints.add(bottomSpawn);
+                    }
+                }
+
+                int leftX = (int) Math.round(sx + perpX * (hw + 1.0));
+                int leftZ = (int) Math.round(sz + perpZ * (hw + 1.0));
+                Location leftRimSpawn = findSafeMobFloor(world, leftX, baseCy, leftZ, baseCy + 5);
+                if (leftRimSpawn != null) {
+                    fissureSpawnPoints.add(leftRimSpawn);
+                }
+
+                int rightX = (int) Math.round(sx - perpX * (hw + 1.0));
+                int rightZ = (int) Math.round(sz - perpZ * (hw + 1.0));
+                Location rightRimSpawn = findSafeMobFloor(world, rightX, baseCy, rightZ, baseCy + 5);
+                if (rightRimSpawn != null) {
+                    fissureSpawnPoints.add(rightRimSpawn);
                 }
             }
+        }
+    }
 
-            // 2. Pontos de spawn nas duas BORDAS / PAREDES ao longo dos 80 blocos da rachadura
-            int leftX = (int) Math.round(sx + perpX * (hw + 0.8));
-            int leftZ = (int) Math.round(sz + perpZ * (hw + 0.8));
-            Location leftRimSpawn = findSafeMobFloor(world, leftX, sSurfY, leftZ, sSurfY + 4);
-            if (leftRimSpawn != null) {
-                fissureSpawnPoints.add(leftRimSpawn);
-            }
+    private static long packXZ(int x, int z) {
+        return (((long) x) << 32) | (z & 0xffffffffL);
+    }
 
-            int rightX = (int) Math.round(sx - perpX * (hw + 0.8));
-            int rightZ = (int) Math.round(sz - perpZ * (hw + 0.8));
-            Location rightRimSpawn = findSafeMobFloor(world, rightX, sSurfY, rightZ, sSurfY + 4);
-            if (rightRimSpawn != null) {
-                fissureSpawnPoints.add(rightRimSpawn);
-            }
+    private static int unpackX(long packed) {
+        return (int) (packed >> 32);
+    }
+
+    private static int unpackZ(long packed) {
+        return (int) packed;
+    }
+
+    private void ensureChunkLoaded(World world, int chunkX, int chunkZ) {
+        if (!world.isChunkLoaded(chunkX, chunkZ)) {
+            world.getChunkAt(chunkX, chunkZ).load();
         }
     }
 
@@ -571,7 +596,6 @@ public class EndStormManager {
         if (!originalBlocks.containsKey(loc)) {
             originalBlocks.put(loc, loc.getBlock().getBlockData().clone());
         }
-        protectedRegionBlocks.add(loc);
         loc.getBlock().setType(material, false);
     }
 
@@ -581,13 +605,11 @@ public class EndStormManager {
         if (world == null) {
             return;
         }
-        if (!world.isChunkLoaded(crystalLocation.getBlockX() >> 4, crystalLocation.getBlockZ() >> 4)) {
-            world.getChunkAt(crystalLocation.getBlockX() >> 4, crystalLocation.getBlockZ() >> 4).load();
-        }
+        ensureChunkLoaded(world, crystalLocation.getBlockX() >> 4, crystalLocation.getBlockZ() >> 4);
 
         EnderCrystal crystal = world.spawn(crystalLocation, EnderCrystal.class, ec -> {
             ec.setShowingBottom(true);
-            ec.setBeamTarget(crystalLocation.clone().add(0, 32, 0));
+            ec.setBeamTarget(crystalLocation.clone().add(0, 35, 0));
             ec.setPersistent(false);
             ec.getPersistentDataContainer().set(riftCrystalKey, PersistentDataType.BYTE, (byte) 1);
         });
@@ -681,21 +703,18 @@ public class EndStormManager {
                 spawnRiftCrystalAndHologram();
             }
 
-            // Partículas no Cristal Central
             world.spawnParticle(Particle.PORTAL, crystalLocation.clone().add(0, 0.5, 0), 35, 2.2, 1.5, 2.2, 0.3);
             world.spawnParticle(Particle.DRAGON_BREATH, crystalLocation.clone().add(0, 0.4, 0), 12, 1.6, 0.8, 1.6, 0.02);
 
-            // Partículas emergindo por toda a extensão dos 80 blocos da Fenda!
             for (Location pLoc : fissureParticlePoints) {
                 if (world.isChunkLoaded(pLoc.getBlockX() >> 4, pLoc.getBlockZ() >> 4)) {
-                    world.spawnParticle(Particle.PORTAL, pLoc, 14, 1.8, 2.5, 1.8, 0.25);
+                    world.spawnParticle(Particle.PORTAL, pLoc, 10, 1.8, 2.5, 1.8, 0.25);
                     world.spawnParticle(Particle.END_ROD, pLoc.clone().add(0, 2.0, 0), 2, 1.4, 2.2, 1.4, 0.02);
                 }
             }
 
-            // A cada 15 segundos, spawna mais Guardiões espalhados por toda a rachadura de 80 blocos
             if (secondsRemaining % 15 == 0 && activeGuardians.size() < MAX_ACTIVE_GUARDIANS) {
-                int toSpawn = Math.min(7, MAX_ACTIVE_GUARDIANS - activeGuardians.size());
+                int toSpawn = Math.min(9, MAX_ACTIVE_GUARDIANS - activeGuardians.size());
                 spawnGuardianWave(toSpawn);
             }
         }
@@ -720,7 +739,7 @@ public class EndStormManager {
     }
 
     /**
-     * Spawna mobs do End espalhados por toda a extensao dos 80 blocos da fenda (no fundo e nas bordas).
+     * Spawna mobs do End espalhados pelos 4 bracos da fenda em X de 200 blocos.
      */
     public void spawnGuardianWave(int count) {
         if (!active || baseCenter == null || count <= 0) {
@@ -741,17 +760,14 @@ public class EndStormManager {
             if (!fissureSpawnPoints.isEmpty()) {
                 spawnLoc = fissureSpawnPoints.get(rng.nextInt(fissureSpawnPoints.size())).clone();
             } else {
-                spawnLoc = baseCenter.clone().add(rng.nextDouble(-10, 10), 1.0, rng.nextDouble(-10, 10));
+                spawnLoc = baseCenter.clone().add(rng.nextDouble(-15, 15), 1.0, rng.nextDouble(-15, 15));
             }
 
-            if (!world.isChunkLoaded(spawnLoc.getBlockX() >> 4, spawnLoc.getBlockZ() >> 4)) {
-                world.getChunkAt(spawnLoc.getBlockX() >> 4, spawnLoc.getBlockZ() >> 4).load();
-            }
+            ensureChunkLoaded(world, spawnLoc.getBlockX() >> 4, spawnLoc.getBlockZ() >> 4);
 
             double roll = rng.nextDouble();
             LivingEntity mob;
             if (roll < 0.58) {
-                // Enderman Guardião da Fenda (+3 pts)
                 mob = world.spawn(spawnLoc, Enderman.class, em -> {
                     em.customName(Component.text("Guardião da Fenda ", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD)
                             .append(Component.text("[+" + POINTS_KILL_ENDERMAN + " pts]", NamedTextColor.LIGHT_PURPLE)));
@@ -766,7 +782,6 @@ public class EndStormManager {
                     em.getPersistentDataContainer().set(guardianPointKey, PersistentDataType.INTEGER, POINTS_KILL_ENDERMAN);
                 });
             } else if (roll < 0.80) {
-                // Sentinela Shulker (+5 pts)
                 mob = world.spawn(spawnLoc, Shulker.class, sh -> {
                     sh.customName(Component.text("Sentinela Shulker ", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD)
                             .append(Component.text("[+" + POINTS_KILL_SHULKER + " pts]", NamedTextColor.GOLD)));
@@ -776,7 +791,6 @@ public class EndStormManager {
                     sh.getPersistentDataContainer().set(guardianPointKey, PersistentDataType.INTEGER, POINTS_KILL_SHULKER);
                 });
             } else {
-                // Parasita do Vazio (+2 pts)
                 mob = world.spawn(spawnLoc, Endermite.class, mite -> {
                     mite.customName(Component.text("Parasita do Vazio ", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD)
                             .append(Component.text("[+" + POINTS_KILL_ENDERMITE + " pts]", NamedTextColor.LIGHT_PURPLE)));
@@ -798,9 +812,6 @@ public class EndStormManager {
         world.playSound(baseCenter, Sound.ENTITY_ENDERMAN_TELEPORT, 1.4f, 0.7f);
     }
 
-    /**
-     * Processa o golpe de um jogador no Cristal da Fenda.
-     */
     public void handleCrystalHit(Player attacker, double rawDamage) {
         if (!active || attacker == null || crystalHp <= 0) {
             return;
@@ -869,9 +880,9 @@ public class EndStormManager {
             }
         }
 
-        spawnGuardianWave(8);
+        spawnGuardianWave(10);
         Bukkit.broadcast(Component.text("🌌 [TEMPESTADE DO END] ", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD)
-                .append(Component.text("O Cristal da Fenda liberou um Pulso do Vazio e novos Guardiões emergiram da rachadura! (" + crystalHp + "/" + CRYSTAL_MAX_HP + " HP)", NamedTextColor.YELLOW)));
+                .append(Component.text("O Cristal da Fenda liberou um Pulso do Vazio e novos Guardiões emergiram da fenda em X! (" + crystalHp + "/" + CRYSTAL_MAX_HP + " HP)", NamedTextColor.YELLOW)));
     }
 
     private void handleCrystalDestroyed(Player destroyer, Team team) {
@@ -882,7 +893,6 @@ public class EndStormManager {
             world.spawnParticle(Particle.EXPLOSION_EMITTER, crystalLocation, 2, 0.4, 0.4, 0.4, 0.0);
             world.spawnParticle(Particle.DRAGON_BREATH, crystalLocation, 120, 3.0, 1.5, 3.0, 0.1);
 
-            // Dropa os tesouros na borda/superficie central quando a fenda se fecha
             Location dropLoc = baseCenter.clone().add(0.5, 1.5, 0.5);
             world.dropItemNaturally(dropLoc, new ItemStack(Material.ENDER_PEARL, 12));
             world.dropItemNaturally(dropLoc, new ItemStack(Material.SHULKER_SHELL, 4));
@@ -990,12 +1000,11 @@ public class EndStormManager {
         }
 
         if (restoreTerrain || !originalBlocks.isEmpty()) {
-            // Antes de fechar a ravina, teleporta para a superficie qualquer jogador que esteja dentro do buraco
             if (baseCenter != null && baseCenter.getWorld() != null) {
                 World w = baseCenter.getWorld();
                 for (Player p : w.getPlayers()) {
                     Location pLoc = p.getLocation().toBlockLocation();
-                    if (protectedRegionBlocks.contains(pLoc) || p.getLocation().distanceSquared(baseCenter) <= 2500.0) {
+                    if (originalBlocks.containsKey(pLoc) || p.getLocation().distanceSquared(baseCenter) <= 14400.0) {
                         int safeY = findGroundSurfaceY(w, pLoc.getBlockX(), baseCenter.getBlockY(), pLoc.getBlockZ());
                         if (pLoc.getBlockY() <= safeY) {
                             p.teleport(new Location(w, p.getLocation().getX(), safeY + 1.5, p.getLocation().getZ(),
@@ -1005,20 +1014,16 @@ public class EndStormManager {
                 }
             }
 
-            // 1a passada: restaura todos os blocos solidos primeiro
             for (Map.Entry<Location, BlockData> entry : originalBlocks.entrySet()) {
                 if (entry.getValue().getMaterial().isSolid()) {
                     Location loc = entry.getKey();
                     World w = loc.getWorld();
                     if (w != null) {
-                        if (!w.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
-                            w.getChunkAt(loc.getBlockX() >> 4, loc.getBlockZ() >> 4).load();
-                        }
+                        ensureChunkLoaded(w, loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
                         loc.getBlock().setBlockData(entry.getValue(), false);
                     }
                 }
             }
-            // 2a passada: restaura vegetacao/ar/blocos nao-solidos
             for (Map.Entry<Location, BlockData> entry : originalBlocks.entrySet()) {
                 if (!entry.getValue().getMaterial().isSolid()) {
                     Location loc = entry.getKey();
@@ -1030,7 +1035,6 @@ public class EndStormManager {
             }
         }
         originalBlocks.clear();
-        protectedRegionBlocks.clear();
         fissureSpawnPoints.clear();
         fissureParticlePoints.clear();
     }
@@ -1053,7 +1057,7 @@ public class EndStormManager {
     private void broadcastStormStart() {
         Title title = Title.title(
                 Component.text("🌌 TEMPESTADE DO END", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD),
-                Component.text("Uma Fenda gigante abriu em " + formatCoords(baseCenter) + "!", NamedTextColor.YELLOW),
+                Component.text("Uma Fenda em X (200 blocos) abriu em " + formatCoords(baseCenter) + "!", NamedTextColor.YELLOW),
                 Title.Times.times(Duration.ofMillis(300), Duration.ofSeconds(4), Duration.ofMillis(700))
         );
 
@@ -1066,7 +1070,7 @@ public class EndStormManager {
         Bukkit.broadcast(Component.empty());
         Bukkit.broadcast(Component.text("================================================", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
         Bukkit.broadcast(Component.text("        🌌 TEMPESTADE DO END INICIADA! 🌌", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text(" • Uma Fenda gigantesca de 80 blocos rasgou o mundo!", NamedTextColor.LIGHT_PURPLE));
+        Bukkit.broadcast(Component.text(" • Uma Fenda gigantesca em X (200 blocos) rasgou o mundo!", NamedTextColor.LIGHT_PURPLE));
         Bukkit.broadcast(Component.text(" • Coordenadas do Centro: ", NamedTextColor.GRAY)
                 .append(Component.text(formatCoords(baseCenter), NamedTextColor.YELLOW, TextDecoration.BOLD)));
         Bukkit.broadcast(Component.text(" • Duração: ", NamedTextColor.GRAY)

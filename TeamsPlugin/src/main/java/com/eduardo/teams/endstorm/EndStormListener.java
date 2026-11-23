@@ -1,7 +1,5 @@
 package com.eduardo.teams.endstorm;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -11,7 +9,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -19,11 +16,11 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityTeleportEvent;
-import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 
 /**
  * Listener para o evento Tempestade do End (/tempestadeend).
+ * Jogadores podem colocar e quebrar blocos livremente na estrutura da Fenda em X.
  */
 public class EndStormListener implements Listener {
 
@@ -87,55 +84,33 @@ public class EndStormListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        // Mantem os Endermen/Shulkers dentro do raio de 50 blocos da Fenda de 80 blocos
-        if (to.distanceSquared(center) > 2500.0) {
+        // Mantem os Endermen/Shulkers dentro do raio de 120 blocos da Fenda em X de 200 blocos
+        if (to.distanceSquared(center) > 14400.0) {
             event.setCancelled(true);
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onBlockBreak(BlockBreakEvent event) {
-        if (stormManager.isProtectedRiftBlock(event.getBlock().getLocation())) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("🌌 Você não pode quebrar blocos da Fenda da Tempestade do End!", NamedTextColor.RED));
+    // Jogadores podem quebrar e colocar blocos livremente na estrutura;
+    // apenas registramos o estado original antes da edicao para restaurar o terreno no final do evento.
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onBlockBreakRecordOriginal(BlockBreakEvent event) {
+        if (stormManager.isActive()) {
+            stormManager.recordOriginalBlockBeforePlayerEdit(event.getBlock());
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onBlockPlace(BlockPlaceEvent event) {
-        if (stormManager.isProtectedRiftBlock(event.getBlock().getLocation())) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("🌌 Você não pode construir dentro da Fenda da Tempestade do End!", NamedTextColor.RED));
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onBucketEmpty(PlayerBucketEmptyEvent event) {
-        if (stormManager.isProtectedRiftBlock(event.getBlock().getLocation())
-                || stormManager.isProtectedRiftBlock(event.getBlockClicked().getLocation())) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("🌌 Você não pode despejar líquidos na Fenda da Tempestade do End!", NamedTextColor.RED));
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onBlockPlaceRecordOriginal(BlockPlaceEvent event) {
+        if (stormManager.isActive()) {
+            stormManager.recordOriginalBlockBeforePlayerEdit(event.getBlock());
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent event) {
-        if (!stormManager.isActive()) {
-            return;
-        }
-        if (stormManager.isRiftCrystal(event.getEntity())) {
+        if (stormManager.isActive() && stormManager.isRiftCrystal(event.getEntity())) {
             event.setCancelled(true);
-            return;
         }
-        event.blockList().removeIf(b -> stormManager.isProtectedRiftBlock(b.getLocation()));
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onBlockExplode(BlockExplodeEvent event) {
-        if (!stormManager.isActive()) {
-            return;
-        }
-        event.blockList().removeIf(b -> stormManager.isProtectedRiftBlock(b.getLocation()));
     }
 
     @EventHandler
