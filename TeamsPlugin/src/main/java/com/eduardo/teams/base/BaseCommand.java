@@ -2,6 +2,7 @@ package com.eduardo.teams.base;
 
 import com.eduardo.teams.base.BaseManager.TeamBase;
 import com.eduardo.teams.base.BaseManager.TntQuota;
+import com.eduardo.teams.ctf.CtfManager;
 import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
 import net.kyori.adventure.text.Component;
@@ -30,10 +31,15 @@ public class BaseCommand implements CommandExecutor, TabCompleter {
 
     private final BaseManager baseManager;
     private final TeamManager teamManager;
+    private CtfManager ctfManager;
 
     public BaseCommand(BaseManager baseManager, TeamManager teamManager) {
         this.baseManager = baseManager;
         this.teamManager = teamManager;
+    }
+
+    public void setCtfManager(CtfManager ctfManager) {
+        this.ctfManager = ctfManager;
     }
 
     @Override
@@ -59,6 +65,10 @@ public class BaseCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleCreate(Player player) {
+        if (ctfManager != null && ctfManager.isActive()) {
+            player.sendMessage(Component.text("🚩 Não é possível criar ou mover a base enquanto o evento Capture The Flag estiver ativo!", NamedTextColor.RED));
+            return;
+        }
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
         if (team == null) {
             player.sendMessage(Component.text("Você precisa estar em um time para criar uma base!", NamedTextColor.RED));
@@ -104,6 +114,10 @@ public class BaseCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleRemove(Player player, String[] args) {
+        if (ctfManager != null && ctfManager.isActive()) {
+            player.sendMessage(Component.text("🚩 Não é possível remover uma base enquanto o evento Capture The Flag estiver ativo!", NamedTextColor.RED));
+            return;
+        }
         // Permite que OP remova base de qualquer time com /base remover <time>
         if (args.length >= 2 && (player.isOp() || player.hasPermission("teams.admin"))) {
             TeamBase removed = baseManager.removeBase(args[1]);

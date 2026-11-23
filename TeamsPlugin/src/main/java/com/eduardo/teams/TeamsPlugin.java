@@ -13,6 +13,9 @@ import com.eduardo.teams.command.LeaderCommand;
 import com.eduardo.teams.command.TeamCommand;
 import com.eduardo.teams.compass.EventCompassListener;
 import com.eduardo.teams.compass.EventCompassManager;
+import com.eduardo.teams.ctf.CtfCommand;
+import com.eduardo.teams.ctf.CtfListener;
+import com.eduardo.teams.ctf.CtfManager;
 import com.eduardo.teams.dimension.DimensionLockCommand;
 import com.eduardo.teams.dimension.DimensionLockListener;
 import com.eduardo.teams.dimension.DimensionLockManager;
@@ -72,6 +75,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private KitManager kitManager;
     private ZoneManager zoneManager;
     private BaseManager baseManager;
+    private CtfManager ctfManager;
     private CombatListener combatListener;
 
     @Override
@@ -127,6 +131,10 @@ public final class TeamsPlugin extends JavaPlugin {
 
         this.baseManager = new BaseManager(this);
         BaseCommand baseCommand = new BaseCommand(this.baseManager, this.teamManager);
+
+        this.ctfManager = new CtfManager(this, this.teamManager, this.baseManager);
+        baseCommand.setCtfManager(this.ctfManager);
+        CtfCommand ctfCommand = new CtfCommand(this.ctfManager);
 
         PluginCommand cmd = getCommand("team");
         if (cmd != null) {
@@ -240,6 +248,12 @@ public final class TeamsPlugin extends JavaPlugin {
             baseCmd.setTabCompleter(baseCommand);
         }
 
+        PluginCommand ctfCmd = getCommand("capturetheflag");
+        if (ctfCmd != null) {
+            ctfCmd.setExecutor(ctfCommand);
+            ctfCmd.setTabCompleter(ctfCommand);
+        }
+
         TrackerHornListener hornListener = new TrackerHornListener(this.trackerHornManager, this.teamManager);
         hornListener.setQuestManager(this.questManager);
 
@@ -264,6 +278,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new KitListener(this.kitManager, kitGui), this);
         pm.registerEvents(new ZoneListener(this.zoneManager), this);
         pm.registerEvents(new BaseListener(this, this.baseManager, this.teamManager), this);
+        pm.registerEvents(new CtfListener(this.ctfManager), this);
         pm.registerEvents(new EventCompassListener(this.compassManager, null), this);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
@@ -293,6 +308,9 @@ public final class TeamsPlugin extends JavaPlugin {
     public void onDisable() {
         if (this.combatListener != null) {
             this.combatListener.shutdown();
+        }
+        if (this.ctfManager != null) {
+            this.ctfManager.shutdown();
         }
         if (this.doomManager != null) {
             this.doomManager.shutdown();

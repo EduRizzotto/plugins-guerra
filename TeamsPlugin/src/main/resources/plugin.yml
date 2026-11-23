@@ -73,6 +73,10 @@ commands:
   base:
     description: Cria ou remove a base protegida do time (30 blocos para cada lado, sem lava e limite de 5 TNTs por time).
     usage: /base <criar|remover|info>
+  capturetheflag:
+    description: Inicia ou gerencia o evento Capture The Flag nas bases dos times (apenas OP/admin).
+    aliases: [ctf, roumabandeira]
+    usage: /capturetheflag [iniciar|status|finalizar|parar]
 permissions:
   teams.admin:
     description: Permite pegar e gerenciar as molduras de placar do servidor.
