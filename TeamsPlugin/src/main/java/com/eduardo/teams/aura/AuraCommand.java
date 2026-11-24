@@ -45,11 +45,44 @@ public class AuraCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(Component.text("Uso no console: /aura permission <jogador> <cor|todas|remover>", NamedTextColor.YELLOW));
                 return true;
             }
-            auraGui.openPlayerAuraMenu(player);
+            if (!auraManager.hasAnyAura(player.getName())) {
+                player.sendMessage(Component.text("🔒 Você ainda não possui nenhuma aura liberada pelo administrador!", NamedTextColor.RED));
+                if (isAdmin) {
+                    player.sendMessage(Component.text("💡 Dica (ADM): Use /aura permission para escolher o jogador e a cor da aura dele!", NamedTextColor.YELLOW));
+                }
+                return true;
+            }
+
+            boolean enabled = auraManager.toggleAuraEnabled(player.getName());
+            AuraColor active = auraManager.getActiveAuraColor(player.getName());
+            if (enabled) {
+                player.sendMessage(Component.text("✨ Sua ", NamedTextColor.GREEN)
+                        .append(Component.text(active != null ? active.getDisplayName() : "Aura", active != null ? active.getTextColor() : NamedTextColor.GOLD, TextDecoration.BOLD))
+                        .append(Component.text(" foi ", NamedTextColor.GREEN))
+                        .append(Component.text("ATIVADA", NamedTextColor.GOLD, TextDecoration.BOLD))
+                        .append(Component.text("!", NamedTextColor.GREEN)));
+                player.playSound(player.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.25f);
+            } else {
+                player.sendMessage(Component.text("🔴 Sua ", NamedTextColor.YELLOW)
+                        .append(Component.text(active != null ? active.getDisplayName() : "Aura", active != null ? active.getTextColor() : NamedTextColor.GOLD, TextDecoration.BOLD))
+                        .append(Component.text(" foi ", NamedTextColor.YELLOW))
+                        .append(Component.text("DESATIVADA", NamedTextColor.RED, TextDecoration.BOLD))
+                        .append(Component.text(". Digite /aura novamente para reativar!", NamedTextColor.YELLOW)));
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
+            }
             return true;
         }
 
         String first = sanitizeToken(args[0]).toLowerCase(Locale.ROOT);
+
+        if (first.equals("menu") || first.equals("gui") || first.equals("cores")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage(Component.text("Apenas jogadores podem abrir o menu.", NamedTextColor.RED));
+                return true;
+            }
+            auraGui.openPlayerAuraMenu(player);
+            return true;
+        }
 
         // Subcomando administrativo explícito (/aura permission, /aura perm, /aura admin, /aura set)
         if (first.equals("permission") || first.equals("perm") || first.equals("permissao")
@@ -226,9 +259,9 @@ public class AuraCommand implements CommandExecutor, TabCompleter {
             if (onlineTarget != null && onlineTarget.isOnline()) {
                 onlineTarget.sendMessage(Component.text("✨ O administrador concedeu e ativou a ", NamedTextColor.GREEN)
                         .append(Component.text(color.getDisplayName(), color.getTextColor(), TextDecoration.BOLD))
-                        .append(Component.text(" em você! Use ", NamedTextColor.GREEN))
+                        .append(Component.text(" em você! Digite ", NamedTextColor.GREEN))
                         .append(Component.text("/aura", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                        .append(Component.text(" para gerenciar!", NamedTextColor.GREEN)));
+                        .append(Component.text(" quando quiser ativar ou desativar!", NamedTextColor.GREEN)));
                 onlineTarget.playSound(onlineTarget.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.25f);
             }
         }

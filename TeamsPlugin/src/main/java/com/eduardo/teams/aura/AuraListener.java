@@ -164,9 +164,9 @@ public class AuraListener implements Listener {
                     if (onlineTarget != null && onlineTarget.isOnline()) {
                         onlineTarget.sendMessage(Component.text("✨ O administrador definiu a ", NamedTextColor.GREEN)
                                 .append(Component.text(color.getDisplayName(), color.getTextColor(), TextDecoration.BOLD))
-                                .append(Component.text(" para você! Use ", NamedTextColor.GREEN))
+                                .append(Component.text(" para você! Digite ", NamedTextColor.GREEN))
                                 .append(Component.text("/aura", NamedTextColor.YELLOW, TextDecoration.BOLD))
-                                .append(Component.text(" para ver suas auras!", NamedTextColor.GREEN)));
+                                .append(Component.text(" quando quiser ativar ou desativar!", NamedTextColor.GREEN)));
                         onlineTarget.playSound(onlineTarget.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.25f);
                     }
                 }
