@@ -625,11 +625,15 @@ public class EndStormManager {
         if (y <= world.getMinHeight() || y >= world.getMaxHeight() - 1) {
             return;
         }
-        Location loc = new Location(world, x, y, z);
+        Block block = world.getBlockAt(x, y, z);
+        Location loc = block.getLocation();
         if (!originalBlocks.containsKey(loc)) {
-            originalBlocks.put(loc, loc.getBlock().getBlockData().clone());
+            if (block.getType() == material) {
+                return;
+            }
+            originalBlocks.put(loc, block.getBlockData().clone());
         }
-        loc.getBlock().setType(material, false);
+        block.setType(material, false);
     }
 
     private void spawnRiftCrystalAndHologram() {
@@ -739,10 +743,15 @@ public class EndStormManager {
             world.spawnParticle(Particle.PORTAL, crystalLocation.clone().add(0, 0.5, 0), 35, 2.2, 1.5, 2.2, 0.3);
             world.spawnParticle(Particle.WITCH, crystalLocation.clone().add(0, 0.4, 0), 12, 1.6, 0.8, 1.6, 0.02);
 
-            for (Location pLoc : fissureParticlePoints) {
-                if (world.isChunkLoaded(pLoc.getBlockX() >> 4, pLoc.getBlockZ() >> 4)) {
-                    world.spawnParticle(Particle.PORTAL, pLoc, 10, 1.8, 2.5, 1.8, 0.25);
-                    world.spawnParticle(Particle.END_ROD, pLoc.clone().add(0, 2.0, 0), 2, 1.4, 2.2, 1.4, 0.02);
+            if (!fissureParticlePoints.isEmpty()) {
+                ThreadLocalRandom rng = ThreadLocalRandom.current();
+                int samples = Math.min(12, fissureParticlePoints.size());
+                for (int i = 0; i < samples; i++) {
+                    Location pLoc = fissureParticlePoints.get(rng.nextInt(fissureParticlePoints.size()));
+                    if (world.isChunkLoaded(pLoc.getBlockX() >> 4, pLoc.getBlockZ() >> 4)) {
+                        world.spawnParticle(Particle.PORTAL, pLoc, 10, 1.8, 2.5, 1.8, 0.25);
+                        world.spawnParticle(Particle.END_ROD, pLoc.clone().add(0, 2.0, 0), 2, 1.4, 2.2, 1.4, 0.02);
+                    }
                 }
             }
 

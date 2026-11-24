@@ -37,7 +37,8 @@ public class EventCompassManager {
         KOTH("koth", "🧭 Bússola: Torre de Domínio", NamedTextColor.AQUA),
         DOOM("doom", "🧭 Bússola: Fortaleza DOOM", NamedTextColor.DARK_RED),
         END_STORM("end_storm", "🧭 Bússola: Tempestade do End", NamedTextColor.LIGHT_PURPLE),
-        NETHER_STORM("nether_storm", "🧭 Bússola: Tempestade do Nether", NamedTextColor.RED);
+        NETHER_STORM("nether_storm", "🧭 Bússola: Tempestade do Nether", NamedTextColor.RED),
+        CTF("ctf", "🧭 Bússola: Capture The Flag", NamedTextColor.GOLD);
 
         private final String id;
         private final String displayTitle;
@@ -73,9 +74,11 @@ public class EventCompassManager {
     }
 
     private final NamespacedKey compassEventKey;
+    private final NamespacedKey compassLabelKey;
 
     public EventCompassManager(TeamsPlugin plugin) {
         this.compassEventKey = new NamespacedKey(plugin, "event_compass_type");
+        this.compassLabelKey = new NamespacedKey(plugin, "event_compass_label");
     }
 
     public boolean isEventCompass(ItemStack item) {
@@ -114,7 +117,7 @@ public class EventCompassManager {
         // 1. Se o jogador esta segurando esta bussola no cursor do mouse, nao cria outra!
         ItemStack cursor = player.getItemOnCursor();
         if (getCompassType(cursor) == type) {
-            if (!isPointingAtSameBlock(cursor, blockTarget)) {
+            if (!isPointingAtSameBlockAndLabel(cursor, blockTarget, targetLabel)) {
                 player.setItemOnCursor(buildCompassStack(player, type, blockTarget, targetLabel));
             }
             // Garante que nao haja nenhuma copia extra perdida no inventario
@@ -128,7 +131,7 @@ public class EventCompassManager {
             for (int i = 0; i < top.getSize(); i++) {
                 ItemStack topItem = top.getItem(i);
                 if (getCompassType(topItem) == type) {
-                    if (!isPointingAtSameBlock(topItem, blockTarget)) {
+                    if (!isPointingAtSameBlockAndLabel(topItem, blockTarget, targetLabel)) {
                         top.setItem(i, buildCompassStack(player, type, blockTarget, targetLabel));
                     }
                     removeCompassFromInventoryOnly(inv, type);
@@ -154,8 +157,8 @@ public class EventCompassManager {
             if (existing != null && existing.getAmount() > 1) {
                 existing.setAmount(1);
             }
-            if (isPointingAtSameBlock(existing, blockTarget)) {
-                return; // Ja esta apontando exatamente para este bloco
+            if (isPointingAtSameBlockAndLabel(existing, blockTarget, targetLabel)) {
+                return; // Ja esta apontando exatamente para este bloco e alvo
             }
             inv.setItem(firstSlot, buildCompassStack(player, type, blockTarget, targetLabel));
         } else {
@@ -163,10 +166,13 @@ public class EventCompassManager {
         }
     }
 
-    private boolean isPointingAtSameBlock(ItemStack item, Location blockTarget) {
+    private boolean isPointingAtSameBlockAndLabel(ItemStack item, Location blockTarget, String targetLabel) {
         if (item != null && item.getItemMeta() instanceof CompassMeta cm) {
             Location prev = cm.getLodestone();
+            String prevLabel = cm.getPersistentDataContainer().get(compassLabelKey, PersistentDataType.STRING);
+            String normLabel = targetLabel != null ? targetLabel : "";
             return prev != null
+                    && Objects.equals(prevLabel, normLabel)
                     && Objects.equals(prev.getWorld(), blockTarget.getWorld())
                     && prev.getBlockX() == blockTarget.getBlockX()
                     && prev.getBlockY() == blockTarget.getBlockY()
@@ -242,6 +248,7 @@ public class EventCompassManager {
             meta.setEnchantmentGlintOverride(true);
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
             meta.getPersistentDataContainer().set(compassEventKey, PersistentDataType.STRING, type.getId());
+            meta.getPersistentDataContainer().set(compassLabelKey, PersistentDataType.STRING, targetLabel != null ? targetLabel : "");
 
             String subtitle = (targetLabel != null && !targetLabel.isBlank()) ? " (" + targetLabel + ")" : "";
             meta.displayName(
@@ -269,8 +276,11 @@ public class EventCompassManager {
                             .append(Component.text(distStr, NamedTextColor.GREEN))
                             .decoration(TextDecoration.ITALIC, false),
                     Component.empty(),
-                    Component.text("Desaparece quando o evento terminar.", NamedTextColor.DARK_GRAY)
-                            .decoration(TextDecoration.ITALIC, false)
+                    type == CompassEventType.CTF
+                            ? Component.text("🖱 Clique Direito: Trocar alvo (Bases / Portadores)", NamedTextColor.GOLD)
+                                    .decoration(TextDecoration.ITALIC, false)
+                            : Component.text("Desaparece quando o evento terminar.", NamedTextColor.DARK_GRAY)
+                                    .decoration(TextDecoration.ITALIC, false)
             ));
 
             stack.setItemMeta(meta);

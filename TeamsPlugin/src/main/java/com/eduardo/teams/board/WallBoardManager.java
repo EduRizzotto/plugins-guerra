@@ -169,6 +169,7 @@ public class WallBoardManager {
         private UUID frameUuid;
         private UUID textDisplayUuid;
         private int mapId = -1;
+        private String lastRenderedSignature = "";
 
         public PlacedBoard(String id, String worldName, int blockX, int blockY, int blockZ,
                            BlockFace facing, BoardType boardType, DisplayScale displayScale) {
@@ -201,6 +202,8 @@ public class WallBoardManager {
         public void setTextDisplayUuid(UUID textDisplayUuid) { this.textDisplayUuid = textDisplayUuid; }
         public int getMapId() { return mapId; }
         public void setMapId(int mapId) { this.mapId = mapId; }
+        public String getLastRenderedSignature() { return lastRenderedSignature; }
+        public void setLastRenderedSignature(String lastRenderedSignature) { this.lastRenderedSignature = lastRenderedSignature; }
 
         public void cycleManualTab() {
             this.activeTab = switch (this.activeTab) {
@@ -297,17 +300,25 @@ public class WallBoardManager {
         if (updateTask != null) {
             updateTask.cancel();
         }
-        // Runs every 40 ticks (2 seconds); rotates ROTATING boards every 4 cycles (8 seconds)
+        // Runs every 60 ticks (3 seconds); rotates ROTATING boards every 3 cycles (9 seconds)
         updateTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (boardsById.isEmpty()) {
+                return;
+            }
             tickCounter++;
-            boolean rotatePhase = (tickCounter % 4 == 0);
+            boolean rotatePhase = (tickCounter % 3 == 0);
+            List<ClanRankingEntry> clans = collectClanRankings();
+            List<PlayerRankingEntry> players = collectPlayerRankings();
+            ServerSummary summary = collectServerSummary(clans, players);
+            String dataDigest = buildRankingsDigest(clans, players, summary);
+
             for (PlacedBoard board : boardsById.values()) {
                 if (board.getBoardType() == BoardType.ROTATING && rotatePhase) {
                     board.cycleManualTab();
                 }
-                refreshSingleBoard(board);
+                refreshSingleBoard(board, clans, players, summary, dataDigest);
             }
-        }, 40L, 40L);
+        }, 60L, 60L);
     }
 
     public void shutdown() {
@@ -511,21 +522,62 @@ public class WallBoardManager {
 
     public void refreshAllBoards() {
         reloadUsercacheNames();
+        if (boardsById.isEmpty()) {
+            return;
+        }
+        List<ClanRankingEntry> clans = collectClanRankings();
+        List<PlayerRankingEntry> players = collectPlayerRankings();
+        ServerSummary summary = collectServerSummary(clans, players);
+        String dataDigest = buildRankingsDigest(clans, players, summary);
         for (PlacedBoard board : boardsById.values()) {
-            refreshSingleBoard(board);
+            board.setLastRenderedSignature("");
+            refreshSingleBoard(board, clans, players, summary, dataDigest);
         }
     }
 
     public void refreshSingleBoard(PlacedBoard board) {
+        List<ClanRankingEntry> clans = collectClanRankings();
+        List<PlayerRankingEntry> players = collectPlayerRankings();
+        ServerSummary summary = collectServerSummary(clans, players);
+        board.setLastRenderedSignature("");
+        refreshSingleBoard(board, clans, players, summary, buildRankingsDigest(clans, players, summary));
+    }
+
+    private String buildRankingsDigest(List<ClanRankingEntry> clans, List<PlayerRankingEntry> players, ServerSummary summary) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(summary.totalClans()).append(':').append(summary.totalKills()).append(':').append(summary.totalDeaths()).append('|');
+        for (int i = 0; i < Math.min(6, clans.size()); i++) {
+            ClanRankingEntry c = clans.get(i);
+            sb.append(c.team().getName()).append(',').append(c.team().getTag()).append(',').append(c.points())
+                    .append(',').append(c.kills()).append(',').append(c.deaths()).append(',').append(c.onlineMembers()).append(';');
+        }
+        sb.append('|');
+        for (int i = 0; i < Math.min(8, players.size()); i++) {
+            PlayerRankingEntry p = players.get(i);
+            sb.append(p.name()).append(',').append(p.online()).append(',').append(p.kills()).append(',').append(p.deaths()).append(';');
+        }
+        return sb.toString();
+    }
+
+    private void refreshSingleBoard(PlacedBoard board,
+                                    List<ClanRankingEntry> clans,
+                                    List<PlayerRankingEntry> players,
+                                    ServerSummary summary,
+                                    String dataDigest) {
         World world = Bukkit.getWorld(board.getWorldName());
         if (world == null) return;
         if (!world.isChunkLoaded(board.getBlockX() >> 4, board.getBlockZ() >> 4)) {
             return;
         }
 
-        List<ClanRankingEntry> clans = collectClanRankings();
-        List<PlayerRankingEntry> players = collectPlayerRankings();
-        ServerSummary summary = collectServerSummary(clans, players);
+        BoardType displayTab = (board.getBoardType() == BoardType.ROTATING) ? board.getActiveTab() : board.getBoardType();
+        String signature = displayTab.name() + "|" + board.getDisplayScale().name() + "|" + dataDigest;
+        boolean entitiesValid = (board.getFrameUuid() != null && Bukkit.getEntity(board.getFrameUuid()) != null)
+                && (board.getTextDisplayUuid() != null && Bukkit.getEntity(board.getTextDisplayUuid()) != null);
+        if (entitiesValid && signature.equals(board.getLastRenderedSignature())) {
+            return;
+        }
+        board.setLastRenderedSignature(signature);
 
         // 1. Ensure and update the ItemFrame on the wall
         ItemFrame frame = findOrRestoreFrame(world, board);
@@ -1042,16 +1094,19 @@ public class WallBoardManager {
             usercacheNames.put(uuid, online.getName());
             return online.getName();
         }
-        OfflinePlayer off = Bukkit.getOfflinePlayer(uuid);
-        if (off.getName() != null && !off.getName().isBlank()) {
-            usercacheNames.put(uuid, off.getName());
-            return off.getName();
-        }
         String cached = usercacheNames.get(uuid);
         if (cached != null && !cached.isBlank()) {
             return cached;
         }
-        return uuid.toString().substring(0, 8);
+        OfflinePlayer off = Bukkit.getOfflinePlayer(uuid);
+        String name = off.getName();
+        if (name != null && !name.isBlank()) {
+            usercacheNames.put(uuid, name);
+            return name;
+        }
+        String fallback = uuid.toString().substring(0, 8);
+        usercacheNames.put(uuid, fallback);
+        return fallback;
     }
 
     public List<ClanRankingEntry> collectClanRankings() {

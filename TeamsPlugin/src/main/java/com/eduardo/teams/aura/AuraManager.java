@@ -120,6 +120,8 @@ public class AuraManager {
         private final Material icon;
         private final NamedTextColor textColor;
         private final Color bukkitColor;
+        private final Particle.DustOptions cachedStrandDust;
+        private final Particle.DustOptions cachedFootDust;
 
         AuraColor(String id, String displayName, Material icon, NamedTextColor textColor, Color bukkitColor) {
             this.id = id;
@@ -127,6 +129,16 @@ public class AuraManager {
             this.icon = icon;
             this.textColor = textColor;
             this.bukkitColor = bukkitColor;
+            this.cachedStrandDust = bukkitColor != null ? new Particle.DustOptions(bukkitColor, 1.35f) : null;
+            this.cachedFootDust = bukkitColor != null ? new Particle.DustOptions(bukkitColor, 1.15f) : null;
+        }
+
+        public Particle.DustOptions getCachedStrandDust() {
+            return cachedStrandDust;
+        }
+
+        public Particle.DustOptions getCachedFootDust() {
+            return cachedFootDust;
         }
 
         public String getId() {
@@ -239,7 +251,7 @@ public class AuraManager {
                 }
                 spawnAuraParticles(player, active, globalStep);
             }
-        }, 4L, 3L);
+        }, 5L, 5L);
     }
 
     private void spawnAuraParticles(Player player, AuraColor auraColor, double step) {
@@ -249,48 +261,50 @@ public class AuraManager {
             return;
         }
 
+        double bx = base.getX();
+        double by = base.getY();
+        double bz = base.getZ();
         double radius = 0.72;
         // Dupla espiral subindo ao redor do jogador + anel suave na base
         for (int strand = 0; strand < 2; strand++) {
             double angle = step + (strand * Math.PI);
             double x = Math.cos(angle) * radius;
             double z = Math.sin(angle) * radius;
-            double yOffset = 0.15 + ((Math.sin(step * 0.65 + strand * Math.PI) + 1.0) * 0.85); // oscila entre 0.15 e 1.85
+            double yOffset = 0.15 + ((Math.sin(step * 0.65 + strand * Math.PI) + 1.0) * 0.85);
 
-            Color particleColor;
+            Particle.DustOptions dust;
             if (auraColor.isRainbow()) {
                 float hue = (float) (((step * 0.08) + (strand * 0.5)) % 1.0);
                 if (hue < 0) {
                     hue += 1.0f;
                 }
                 int rgb = java.awt.Color.HSBtoRGB(hue, 0.95f, 1.0f);
-                particleColor = Color.fromRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+                Color particleColor = Color.fromRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+                dust = new Particle.DustOptions(particleColor, 1.35f);
             } else {
-                particleColor = auraColor.getBukkitColor();
+                dust = auraColor.getCachedStrandDust();
             }
 
-            Particle.DustOptions dust = new Particle.DustOptions(particleColor, 1.35f);
-            Location particleLoc = base.clone().add(x, yOffset, z);
-            world.spawnParticle(Particle.DUST, particleLoc, 2, 0.05, 0.05, 0.05, 0.0, dust);
+            world.spawnParticle(Particle.DUST, bx + x, by + yOffset, bz + z, 2, 0.05, 0.05, 0.05, 0.0, dust);
         }
 
         // Anel extra na altura dos pes a cada ciclo
         double footAngle = -step * 1.3;
         double fx = Math.cos(footAngle) * (radius * 0.9);
         double fz = Math.sin(footAngle) * (radius * 0.9);
-        Color footColor;
+        Particle.DustOptions footDust;
         if (auraColor.isRainbow()) {
             float hue = (float) (((step * 0.08) + 0.25) % 1.0);
             if (hue < 0) {
                 hue += 1.0f;
             }
             int rgb = java.awt.Color.HSBtoRGB(hue, 0.95f, 1.0f);
-            footColor = Color.fromRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+            Color footColor = Color.fromRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+            footDust = new Particle.DustOptions(footColor, 1.15f);
         } else {
-            footColor = auraColor.getBukkitColor();
+            footDust = auraColor.getCachedFootDust();
         }
-        Particle.DustOptions footDust = new Particle.DustOptions(footColor, 1.15f);
-        world.spawnParticle(Particle.DUST, base.clone().add(fx, 0.12, fz), 1, 0.02, 0.02, 0.02, 0.0, footDust);
+        world.spawnParticle(Particle.DUST, bx + fx, by + 0.12, bz + fz, 1, 0.02, 0.02, 0.02, 0.0, footDust);
     }
 
     public void recordPlayerSeen(Player player) {
@@ -329,7 +343,9 @@ public class AuraManager {
     }
 
     public List<String> getAllKnownPlayerNamesSorted() {
-        syncKnownPlayersFromServer();
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            knownPlayerNames.putIfAbsent(online.getName().toLowerCase(Locale.ROOT), online.getName());
+        }
         List<String> all = new ArrayList<>(knownPlayerNames.values());
         all.sort((a, b) -> {
             boolean aOnline = Bukkit.getPlayerExact(a) != null;

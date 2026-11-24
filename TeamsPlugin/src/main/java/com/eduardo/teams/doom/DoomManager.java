@@ -153,6 +153,7 @@ public class DoomManager {
     private BukkitTask tickTask;
     private BukkitTask buildTask;
     private int tickCounter = 0;
+    private boolean dynamicStateDirty = false;
 
     public enum DoomVariant {
         DOOM_1("Fortaleza DOOM", "Cidadela Infernal", Material.DEEPSLATE_BRICKS, Material.CRYING_OBSIDIAN, Material.GILDED_BLACKSTONE),
@@ -284,7 +285,7 @@ public class DoomManager {
     }
 
     public boolean isDoomArtifact(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) {
+        if (item == null || item.getType() != Material.NETHER_STAR || !item.hasItemMeta()) {
             return false;
         }
         ItemMeta meta = item.getItemMeta();
@@ -373,12 +374,15 @@ public class DoomManager {
             extraPlayerOriginalBlocks.put(norm, cloned);
         }
         playerPlacedBlocks.add(norm);
+        this.dynamicStateDirty = true;
     }
 
     public void unregisterPlayerPlacedBlock(Location loc) {
         Location norm = normalizeBlockLoc(loc);
         if (norm != null) {
-            playerPlacedBlocks.remove(norm);
+            if (playerPlacedBlocks.remove(norm)) {
+                this.dynamicStateDirty = true;
+            }
         }
     }
 
@@ -567,7 +571,7 @@ public class DoomManager {
 
     private void startSlicedBuild(CommandSender initiator) {
         final int[] currentDz = {MIN_DZ};
-        final int slicesPerTick = 10;
+        final int slicesPerTick = 4;
 
         this.buildTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (dungeonWorld == null) {
@@ -1700,7 +1704,6 @@ public class DoomManager {
         if (carrier == null || !carrier.isOnline()) {
             return;
         }
-        teamManager.updatePlayerDisplay(carrier);
         carrier.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 60, 0, false, false, true));
     }
 
@@ -1727,8 +1730,9 @@ public class DoomManager {
         if (tickCounter % 6 == 0 && !artifactClaimed) {
             pulseNearbySpawners();
         }
-        if (tickCounter % 10 == 0) {
+        if (tickCounter % 10 == 0 && dynamicStateDirty) {
             saveDynamicState();
+            dynamicStateDirty = false;
         }
 
         if (artifactClaimed) {
@@ -1824,6 +1828,7 @@ public class DoomManager {
         this.gateOpened = true;
         this.gateCountdownStarted = false;
         this.gateSecondsRemaining = 0;
+        this.dynamicStateDirty = true;
 
         // Abre o Portao Principal (dz = 0..1, dx = -2..+2, dy = 1..5)
         for (int dz = 0; dz <= 1; dz++) {

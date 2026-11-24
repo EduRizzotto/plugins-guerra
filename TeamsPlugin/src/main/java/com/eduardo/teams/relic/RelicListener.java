@@ -161,9 +161,4 @@ public class RelicListener implements Listener {
             Bukkit.getScheduler().runTaskLater(plugin, () -> relicManager.applyCarrierGlow(player), 2L);
         }
     }
-
-    @EventHandler
-    public void onChunkLoad(ChunkLoadEvent event) {
-        relicManager.cleanupOrphanHologramsInChunk(event.getChunk());
-    }
 }

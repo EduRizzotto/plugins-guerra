@@ -266,6 +266,7 @@ public class RelicManager {
         itemEntity.setInvulnerable(true);
         itemEntity.setUnlimitedLifetime(true);
         itemEntity.setGlowing(true);
+        itemEntity.setPersistent(false);
         itemEntity.setPickupDelay(20); // 1 segundo para nao pegar instantaneamente ao morrer
         itemEntity.customName(Component.text("👑 Relíquia da Guerra", NamedTextColor.GOLD, TextDecoration.BOLD));
         itemEntity.setCustomNameVisible(true);
@@ -286,6 +287,7 @@ public class RelicManager {
         Location holoLoc = dropLoc.clone().add(0, 1.1, 0);
         TextDisplay display = world.spawn(holoLoc, TextDisplay.class, td -> {
             td.getPersistentDataContainer().set(relicHologramKey, PersistentDataType.BYTE, (byte) 1);
+            td.setPersistent(false);
             td.setBillboard(Display.Billboard.CENTER);
             td.setSeeThrough(true);
             td.setShadowed(true);

@@ -3,6 +3,8 @@ package com.eduardo.teams.ctf;
 import com.eduardo.teams.TeamsPlugin;
 import com.eduardo.teams.base.BaseManager;
 import com.eduardo.teams.base.BaseManager.TeamBase;
+import com.eduardo.teams.compass.EventCompassManager;
+import com.eduardo.teams.compass.EventCompassManager.CompassEventType;
 import com.eduardo.teams.manager.TeamManager;
 import com.eduardo.teams.model.Team;
 import net.kyori.adventure.bossbar.BossBar;
@@ -42,6 +44,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -161,12 +164,16 @@ public class CtfManager {
         }
     }
 
+    public record CtfCompassTarget(String label, NamedTextColor color, Location location) {}
+
     private final TeamsPlugin plugin;
     private final TeamManager teamManager;
     private final BaseManager baseManager;
     private final NamespacedKey ctfFlagKey;
+    private EventCompassManager compassManager;
 
     private final Map<String, TeamFlag> flagsByTeamKey = new LinkedHashMap<>();
+    private final Map<UUID, Integer> playerCompassTargetIndex = new HashMap<>();
     private boolean active = false;
     private int totalDurationSeconds = DEFAULT_DURATION_SECONDS;
     private int remainingSeconds = 0;
@@ -178,6 +185,14 @@ public class CtfManager {
         this.teamManager = teamManager;
         this.baseManager = baseManager;
         this.ctfFlagKey = new NamespacedKey(plugin, "ctf_flag_team");
+    }
+
+    public void setCompassManager(EventCompassManager compassManager) {
+        this.compassManager = compassManager;
+    }
+
+    public EventCompassManager getCompassManager() {
+        return compassManager;
     }
 
     public boolean isActive() {
@@ -219,6 +234,7 @@ public class CtfManager {
         }
 
         flagsByTeamKey.clear();
+        playerCompassTargetIndex.clear();
 
         for (TeamBase base : allBases) {
             Team team = teamManager.getTeamByName(base.getTeamKey());
@@ -264,6 +280,7 @@ public class CtfManager {
             online.showBossBar(this.bossBar);
         }
 
+        updateAllPlayerCompasses();
         broadcastEventStart();
 
         this.tickTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
@@ -549,9 +566,10 @@ public class CtfManager {
         }
 
         updateBossBar();
+        updateAllPlayerCompasses();
         checkPeriodicAnnouncements();
 
-        if (remainingSeconds <= 0) {
+        if (shouldAutoFinishEvent() || remainingSeconds <= 0) {
             finishEventWithRewards();
         }
     }
@@ -732,6 +750,11 @@ public class CtfManager {
             restoreOriginalBaseBlocks(flag);
         }
         flagsByTeamKey.clear();
+        playerCompassTargetIndex.clear();
+
+        if (this.compassManager != null) {
+            this.compassManager.removeCompassFromAllPlayers(CompassEventType.CTF);
+        }
 
         // Remove qualquer item de bandeira remanescente dos inventários de jogadores online
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -743,7 +766,135 @@ public class CtfManager {
         removeAllFlagItemsFromPlayer(player);
         if (active && bossBar != null) {
             player.showBossBar(bossBar);
+            updateSinglePlayerCompass(player, buildCompassTargets());
         }
+    }
+
+    // =========================================================================
+    // BUSSOLA UNICA DO CAPTURE THE FLAG (TROCA DE ALVO COM BOTAO DIREITO)
+    // =========================================================================
+
+    public List<CtfCompassTarget> buildCompassTargets() {
+        List<CtfCompassTarget> targets = new ArrayList<>();
+        if (!active) {
+            return targets;
+        }
+
+        // 1. Todas as bases dos times participantes
+        for (TeamFlag flag : flagsByTeamKey.values()) {
+            Team team = teamManager.getTeamByName(flag.getTeamKey());
+            NamedTextColor color = (team != null && team.getColor() != null) ? team.getColor() : NamedTextColor.GOLD;
+            String stateSuffix = switch (flag.getStatus()) {
+                case AT_BASE -> " [Na Base]";
+                case CARRIED -> " [Roubada]";
+                case DROPPED -> " [No Chão]";
+                case CAPTURED -> " [Capturada]";
+            };
+            targets.add(new CtfCompassTarget(
+                    "Base de " + flag.getTeamName() + stateSuffix,
+                    color,
+                    flag.getFlagBlockLocation()
+            ));
+        }
+
+        // 2. Todos os jogadores que capturaram/roubaram uma bandeira e estao correndo com ela (ou bandeiras no chao)
+        for (TeamFlag flag : flagsByTeamKey.values()) {
+            Team team = teamManager.getTeamByName(flag.getTeamKey());
+            NamedTextColor color = (team != null && team.getColor() != null) ? team.getColor() : NamedTextColor.RED;
+            if (flag.getStatus() == FlagStatus.CARRIED && flag.getCarrierId() != null) {
+                Player carrier = Bukkit.getPlayer(flag.getCarrierId());
+                if (carrier != null && carrier.isOnline()) {
+                    targets.add(new CtfCompassTarget(
+                            "Portador: " + carrier.getName() + " [Bandeira de " + flag.getTeamName() + "]",
+                            color,
+                            carrier.getLocation()
+                    ));
+                }
+            } else if (flag.getStatus() == FlagStatus.DROPPED && flag.getDroppedLocation() != null) {
+                targets.add(new CtfCompassTarget(
+                        "Bandeira Caída de " + flag.getTeamName(),
+                        color,
+                        flag.getDroppedLocation()
+                ));
+            }
+        }
+        return targets;
+    }
+
+    public void updateAllPlayerCompasses() {
+        if (!active || compassManager == null) {
+            return;
+        }
+        List<CtfCompassTarget> targets = buildCompassTargets();
+        if (targets.isEmpty()) {
+            return;
+        }
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            updateSinglePlayerCompass(player, targets);
+        }
+    }
+
+    public void updateSinglePlayerCompass(Player player, List<CtfCompassTarget> targets) {
+        if (!active || compassManager == null || player == null || !player.isOnline() || targets == null || targets.isEmpty()) {
+            return;
+        }
+        int idx = playerCompassTargetIndex.getOrDefault(player.getUniqueId(), 0);
+        if (idx < 0 || idx >= targets.size()) {
+            idx = 0;
+            playerCompassTargetIndex.put(player.getUniqueId(), 0);
+        }
+        CtfCompassTarget chosen = targets.get(idx);
+        compassManager.giveOrUpdatePlayerCompass(player, CompassEventType.CTF, chosen.location(), chosen.label());
+    }
+
+    public void cyclePlayerCompassTarget(Player player) {
+        if (!active || compassManager == null || player == null) {
+            return;
+        }
+        List<CtfCompassTarget> targets = buildCompassTargets();
+        if (targets.isEmpty()) {
+            return;
+        }
+        int currentIdx = playerCompassTargetIndex.getOrDefault(player.getUniqueId(), 0);
+        int nextIdx = (currentIdx + 1) % targets.size();
+        playerCompassTargetIndex.put(player.getUniqueId(), nextIdx);
+
+        CtfCompassTarget chosen = targets.get(nextIdx);
+        compassManager.giveOrUpdatePlayerCompass(player, CompassEventType.CTF, chosen.location(), chosen.label());
+
+        Location loc = chosen.location();
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.3f);
+        player.sendActionBar(Component.text("🧭 Bússola CTF [" + (nextIdx + 1) + "/" + targets.size() + "]: ", NamedTextColor.GOLD, TextDecoration.BOLD)
+                .append(Component.text(chosen.label(), chosen.color(), TextDecoration.BOLD))
+                .append(Component.text(" (X: " + loc.getBlockX() + ", Y: " + loc.getBlockY() + ", Z: " + loc.getBlockZ() + ")", NamedTextColor.AQUA)));
+    }
+
+    /**
+     * Verifica se o evento deve terminar imediatamente:
+     * - Quando todas as bandeiras foram capturadas (0 bandeiras vivas), OU
+     * - Quando ha 2+ times no evento e restou apenas 1 unica bandeira nao capturada que esta segura na base (AT_BASE),
+     *   significando que todas as bandeiras adversarias ja foram capturadas!
+     */
+    public boolean shouldAutoFinishEvent() {
+        if (!active || flagsByTeamKey.isEmpty()) {
+            return false;
+        }
+        List<TeamFlag> uncaptured = new ArrayList<>();
+        for (TeamFlag f : flagsByTeamKey.values()) {
+            if (f.getStatus() != FlagStatus.CAPTURED) {
+                uncaptured.add(f);
+            }
+        }
+        if (uncaptured.isEmpty()) {
+            return true;
+        }
+        if (flagsByTeamKey.size() >= 2 && uncaptured.size() == 1) {
+            TeamFlag lastFlag = uncaptured.get(0);
+            if (lastFlag.getStatus() == FlagStatus.AT_BASE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // =========================================================================
@@ -808,7 +959,7 @@ public class CtfManager {
     }
 
     public boolean isCtfFlagItem(ItemStack stack) {
-        if (stack == null || stack.getType().isAir() || !stack.hasItemMeta()) {
+        if (stack == null || !stack.getType().name().endsWith("_BANNER") || !stack.hasItemMeta()) {
             return false;
         }
         ItemMeta meta = stack.getItemMeta();
@@ -1022,6 +1173,10 @@ public class CtfManager {
         }
 
         updateBossBar();
+        updateAllPlayerCompasses();
+        if (shouldAutoFinishEvent()) {
+            finishEventWithRewards();
+        }
         return true;
     }
 
@@ -1177,6 +1332,10 @@ public class CtfManager {
         NamedTextColor color = (team != null && team.getColor() != null) ? team.getColor() : NamedTextColor.GREEN;
         Bukkit.broadcast(Component.text("🛡 BANDEIRA RECUPERADA! ", NamedTextColor.GREEN, TextDecoration.BOLD)
                 .append(Component.text(reasonMessage, color)));
+        updateAllPlayerCompasses();
+        if (shouldAutoFinishEvent()) {
+            finishEventWithRewards();
+        }
     }
 
     public void removeFlagItemFromPlayer(Player player, String flagTeamKey) {

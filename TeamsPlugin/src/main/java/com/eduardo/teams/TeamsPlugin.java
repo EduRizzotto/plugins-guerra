@@ -150,6 +150,7 @@ public final class TeamsPlugin extends JavaPlugin {
         BaseCommand baseCommand = new BaseCommand(this.baseManager, this.teamManager);
 
         this.ctfManager = new CtfManager(this, this.teamManager, this.baseManager);
+        this.ctfManager.setCompassManager(this.compassManager);
         baseCommand.setCtfManager(this.ctfManager);
         CtfCommand ctfCommand = new CtfCommand(this.ctfManager);
 

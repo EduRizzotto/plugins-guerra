@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +45,7 @@ public class QuestManager {
 
     private String currentDateStr;
     private final List<QuestDefinition> activeQuests = new ArrayList<>();
+    private final Set<QuestActionType> activeActionTypes = EnumSet.noneOf(QuestActionType.class);
     // Mapa: nomeDoTimeMinusculo -> (questId -> progressoAtual)
     private final Map<String, Map<String, Integer>> teamProgress = new HashMap<>();
 
@@ -143,12 +145,14 @@ public class QuestManager {
         }
 
         activeQuests.clear();
+        activeActionTypes.clear();
         teamProgress.clear();
         this.currentDateStr = dateStr;
 
         pickRandomQuests(QuestDifficulty.EASY, 2, previousIds);
         pickRandomQuests(QuestDifficulty.MEDIUM, 2, previousIds);
         pickRandomQuests(QuestDifficulty.HARD, 1, previousIds);
+        rebuildActiveActionTypes();
 
         saveQuests();
 
@@ -203,11 +207,18 @@ public class QuestManager {
         }
     }
 
+    private void rebuildActiveActionTypes() {
+        activeActionTypes.clear();
+        for (QuestDefinition q : activeQuests) {
+            activeActionTypes.add(q.getActionType());
+        }
+    }
+
     /**
      * Incrementa o progresso compartilhado do time do jogador para qualquer quest ativa compativel.
      */
     public void recordAction(Player player, QuestActionType actionType, Material material, EntityType entityType, int amount) {
-        if (player == null || amount <= 0) {
+        if (player == null || amount <= 0 || !activeActionTypes.contains(actionType)) {
             return;
         }
         Team team = teamManager.getPlayerTeam(player.getUniqueId());
@@ -218,14 +229,8 @@ public class QuestManager {
     }
 
     public void recordTeamAction(Team team, Player actor, QuestActionType actionType, Material material, EntityType entityType, int amount) {
-        if (team == null || amount <= 0 || activeQuests.isEmpty()) {
+        if (team == null || amount <= 0 || !activeActionTypes.contains(actionType)) {
             return;
-        }
-
-        // Verifica se mudou de dia exatamente agora
-        String today = LocalDate.now().toString();
-        if (!today.equals(this.currentDateStr)) {
-            rollNewDailyQuests(today, true);
         }
 
         String teamKey = team.getName().toLowerCase(Locale.ROOT);
@@ -364,6 +369,7 @@ public class QuestManager {
             return;
         }
 
+        rebuildActiveActionTypes();
         this.currentDateStr = today;
 
         ConfigurationSection progressSec = storageConfig.getConfigurationSection("teamProgress");

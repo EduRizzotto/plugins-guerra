@@ -96,18 +96,23 @@ public class CtfListener implements Listener {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
         }
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.LEFT_CLICK_BLOCK) {
-            return;
-        }
+
         Block clicked = event.getClickedBlock();
-        if (clicked == null) {
-            return;
+        if (clicked != null && (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK)) {
+            TeamFlag flag = ctfManager.getFlagAtBlock(clicked.getLocation());
+            if (flag != null && flag.getStatus() == FlagStatus.AT_BASE) {
+                event.setCancelled(true);
+                ctfManager.tryStealFlagFromBase(player, flag);
+                return;
+            }
         }
 
-        TeamFlag flag = ctfManager.getFlagAtBlock(clicked.getLocation());
-        if (flag != null && flag.getStatus() == FlagStatus.AT_BASE) {
+        if (handItem != null
+                && (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                && ctfManager.getCompassManager() != null
+                && ctfManager.getCompassManager().getCompassType(handItem) == com.eduardo.teams.compass.EventCompassManager.CompassEventType.CTF) {
             event.setCancelled(true);
-            ctfManager.tryStealFlagFromBase(player, flag);
+            ctfManager.cyclePlayerCompassTarget(player);
         }
     }
 
