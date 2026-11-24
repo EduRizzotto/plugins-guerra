@@ -62,6 +62,10 @@ commands:
     description: Abre o painel de Kits Oficiais, resgata um kit liberado ou gerencia permissoes (/kit permission).
     aliases: [kits]
     usage: /kit [rango|sobrevivencia|minerador|alquimista|arqueiro|construtor|permission]
+  aura:
+    description: Abre o painel de Auras Coloridas, equipa uma aura ou gerencia qual jogador e qual cor de aura cada player tera (/aura permission).
+    aliases: [auras]
+    usage: /aura [cor|on|off|permission|<jogador>] <cor|todas|remover>
   proteger:
     description: Bloqueia colocar e quebrar blocos em uma area por coordenadas (estilo /fill).
     aliases: [zonabloco, areabloco]

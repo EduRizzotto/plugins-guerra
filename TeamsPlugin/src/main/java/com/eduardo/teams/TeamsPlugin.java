@@ -3,6 +3,10 @@ package com.eduardo.teams;
 import com.eduardo.teams.airdrop.AirDropCommand;
 import com.eduardo.teams.airdrop.AirDropListener;
 import com.eduardo.teams.airdrop.AirDropManager;
+import com.eduardo.teams.aura.AuraCommand;
+import com.eduardo.teams.aura.AuraGui;
+import com.eduardo.teams.aura.AuraListener;
+import com.eduardo.teams.aura.AuraManager;
 import com.eduardo.teams.base.BaseCommand;
 import com.eduardo.teams.base.BaseListener;
 import com.eduardo.teams.base.BaseManager;
@@ -79,6 +83,7 @@ public final class TeamsPlugin extends JavaPlugin {
     private DoomManager doomManager;
     private DimensionLockManager dimensionLockManager;
     private KitManager kitManager;
+    private AuraManager auraManager;
     private ZoneManager zoneManager;
     private BaseManager baseManager;
     private CtfManager ctfManager;
@@ -132,6 +137,10 @@ public final class TeamsPlugin extends JavaPlugin {
         this.kitManager = new KitManager(this);
         KitGui kitGui = new KitGui(this, this.kitManager);
         KitCommand kitCommand = new KitCommand(this.kitManager, kitGui);
+
+        this.auraManager = new AuraManager(this);
+        AuraGui auraGui = new AuraGui(this, this.auraManager);
+        AuraCommand auraCommand = new AuraCommand(this.auraManager, auraGui);
 
         this.zoneManager = new ZoneManager(this);
         ZoneCommand protegerCommand = new ZoneCommand(this.zoneManager, false);
@@ -246,6 +255,12 @@ public final class TeamsPlugin extends JavaPlugin {
             kitCmd.setTabCompleter(kitCommand);
         }
 
+        PluginCommand auraCmd = getCommand("aura");
+        if (auraCmd != null) {
+            auraCmd.setExecutor(auraCommand);
+            auraCmd.setTabCompleter(auraCommand);
+        }
+
         PluginCommand protegerCmd = getCommand("proteger");
         if (protegerCmd != null) {
             protegerCmd.setExecutor(protegerCommand);
@@ -304,6 +319,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new DoomListener(this.doomManager, this.teamManager), this);
         pm.registerEvents(new DimensionLockListener(this.dimensionLockManager), this);
         pm.registerEvents(new KitListener(this.kitManager, kitGui), this);
+        pm.registerEvents(new AuraListener(this.auraManager, auraGui), this);
         pm.registerEvents(new ZoneListener(this.zoneManager), this);
         pm.registerEvents(new BaseListener(this, this.baseManager, this.teamManager), this);
         pm.registerEvents(new CtfListener(this.ctfManager), this);
@@ -380,6 +396,9 @@ public final class TeamsPlugin extends JavaPlugin {
         }
         if (this.kitManager != null) {
             this.kitManager.saveData();
+        }
+        if (this.auraManager != null) {
+            this.auraManager.shutdown();
         }
         if (this.zoneManager != null) {
             this.zoneManager.saveZones();
