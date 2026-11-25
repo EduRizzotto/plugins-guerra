@@ -261,6 +261,9 @@ public class RelicManager {
         }
 
         Location dropLoc = location.clone().add(0, 0.3, 0);
+        if (!world.isChunkLoaded(dropLoc.getBlockX() >> 4, dropLoc.getBlockZ() >> 4)) {
+            world.getChunkAt(dropLoc.getBlockX() >> 4, dropLoc.getBlockZ() >> 4).load();
+        }
         Item itemEntity = world.dropItem(dropLoc, createRelicItem());
         itemEntity.setVelocity(itemEntity.getVelocity().zero());
         itemEntity.setInvulnerable(true);
@@ -450,6 +453,7 @@ public class RelicManager {
         if (state == RelicState.WAITING_PICKUP) {
             waitingTimeoutSeconds--;
             spawnGroundParticles();
+            ensureDroppedEntityValid();
             if (compassManager != null && lastKnownLocation != null) {
                 compassManager.giveOrUpdateAllPlayers(CompassEventType.RELIC, lastKnownLocation, "Relíquia no Chão");
             }
@@ -674,7 +678,8 @@ public class RelicManager {
             return;
         }
         Entity ent = Bukkit.getEntity(droppedItemEntityId);
-        if (ent == null || !ent.isValid()) {
+        Entity holo = hologramEntityId != null ? Bukkit.getEntity(hologramEntityId) : null;
+        if (ent == null || !ent.isValid() || holo == null || !holo.isValid()) {
             dropRelicEntityAt(lastKnownLocation);
         } else {
             lastKnownLocation = ent.getLocation();

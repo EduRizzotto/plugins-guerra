@@ -495,6 +495,11 @@ public class CtfManager {
                     if (loc.getBlock().getType() != flag.getBannerMaterial()) {
                         loc.getBlock().setType(flag.getBannerMaterial(), false);
                     }
+                    // Garante que o holograma da bandeira reapareca caso o chunk tenha sido descarregado
+                    Entity holo = flag.hologramEntityId != null ? Bukkit.getEntity(flag.hologramEntityId) : null;
+                    if (holo == null || !holo.isValid()) {
+                        spawnOrUpdateBaseHologram(flag, flagTeam);
+                    }
                     Particle.DustOptions dust = new Particle.DustOptions(mapNamedColorToBukkitColor(teamColor), 1.5f);
                     w.spawnParticle(Particle.DUST, loc.clone().add(0.5, 1.3, 0.5), 10, 0.35, 0.5, 0.35, 0.0, dust);
                 }
@@ -545,22 +550,26 @@ public class CtfManager {
                     }
                 }
             } else if (flag.getStatus() == FlagStatus.DROPPED) {
-                Entity itemEntity = flag.getDroppedItemEntityId() != null ? Bukkit.getEntity(flag.getDroppedItemEntityId()) : null;
-                if (itemEntity == null || !itemEntity.isValid()) {
-                    // Se o item sumiu por descarga de chunk, recria na última posição caída para nunca desaparecer sozinho
-                    Location dLoc = flag.getDroppedLocation();
-                    if (dLoc != null && dLoc.getWorld() != null && dLoc.getBlockY() > dLoc.getWorld().getMinHeight()) {
-                        spawnDroppedFlagEntity(flag, dLoc, teamColor);
-                    } else {
+                Location dLoc = flag.getDroppedLocation();
+                if (dLoc == null || dLoc.getWorld() == null) {
+                    returnFlagToBase(flag, "A bandeira caída de " + flag.getTeamName() + " desapareceu e voltou para a base!");
+                } else if (dLoc.getWorld().isChunkLoaded(dLoc.getBlockX() >> 4, dLoc.getBlockZ() >> 4)) {
+                    Entity itemEntity = flag.getDroppedItemEntityId() != null ? Bukkit.getEntity(flag.getDroppedItemEntityId()) : null;
+                    if (itemEntity == null || !itemEntity.isValid()) {
+                        // Se o item sumiu por descarga de chunk, recria na última posição caída assim que o chunk carregar
+                        if (dLoc.getBlockY() > dLoc.getWorld().getMinHeight()) {
+                            spawnDroppedFlagEntity(flag, dLoc, teamColor);
+                        } else {
+                            returnFlagToBase(flag, "A bandeira caída de " + flag.getTeamName() + " caiu no void e voltou para a base!");
+                        }
+                    } else if (itemEntity.getLocation().getBlockY() < itemEntity.getWorld().getMinHeight()) {
                         returnFlagToBase(flag, "A bandeira caída de " + flag.getTeamName() + " caiu no void e voltou para a base!");
+                    } else {
+                        flag.droppedLocation = itemEntity.getLocation();
+                        itemEntity.customName(Component.text("🚩 Bandeira de " + flag.getTeamName() + " (Pegue e leve p/ Base!)", teamColor, TextDecoration.BOLD));
+                        Particle.DustOptions dust = new Particle.DustOptions(mapNamedColorToBukkitColor(teamColor), 1.6f);
+                        itemEntity.getWorld().spawnParticle(Particle.DUST, itemEntity.getLocation().add(0, 0.6, 0), 10, 0.25, 0.3, 0.25, 0.0, dust);
                     }
-                } else if (itemEntity.getLocation().getBlockY() < itemEntity.getWorld().getMinHeight()) {
-                    returnFlagToBase(flag, "A bandeira caída de " + flag.getTeamName() + " caiu no void e voltou para a base!");
-                } else {
-                    flag.droppedLocation = itemEntity.getLocation();
-                    itemEntity.customName(Component.text("🚩 Bandeira de " + flag.getTeamName() + " (Pegue e leve p/ Base!)", teamColor, TextDecoration.BOLD));
-                    Particle.DustOptions dust = new Particle.DustOptions(mapNamedColorToBukkitColor(teamColor), 1.6f);
-                    itemEntity.getWorld().spawnParticle(Particle.DUST, itemEntity.getLocation().add(0, 0.6, 0), 10, 0.25, 0.3, 0.25, 0.0, dust);
                 }
             }
         }
