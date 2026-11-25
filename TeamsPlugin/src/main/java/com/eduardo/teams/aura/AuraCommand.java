@@ -84,6 +84,25 @@ public class AuraCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (first.equals("testraio") || first.equals("testarraio")) {
+            if (!isAdmin) {
+                sender.sendMessage(Component.text("Apenas administradores podem usar /aura testraio.", NamedTextColor.RED));
+                return true;
+            }
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage(Component.text("Apenas jogadores podem usar /aura testraio.", NamedTextColor.RED));
+                return true;
+            }
+            org.bukkit.Location strikeLoc = player.getLocation().add(player.getLocation().getDirection().setY(0).normalize().multiply(3.0));
+            strikeLoc.setY(player.getLocation().getY());
+            player.getWorld().strikeLightningEffect(strikeLoc);
+            boolean activeAura = auraManager.hasActiveAura(player);
+            player.sendMessage(Component.text("⚡ Raio de teste disparado 3 blocos à sua frente! (Sem dano e sem queimar itens | Sua aura ativa: ", NamedTextColor.AQUA)
+                    .append(Component.text(activeAura ? "SIM" : "NÃO", activeAura ? NamedTextColor.GREEN : NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(Component.text(")", NamedTextColor.AQUA)));
+            return true;
+        }
+
         // Subcomando administrativo explícito (/aura permission, /aura perm, /aura admin, /aura set)
         if (first.equals("permission") || first.equals("perm") || first.equals("permissao")
                 || first.equals("permissoes") || first.equals("admin") || first.equals("set")) {
@@ -284,6 +303,9 @@ public class AuraCommand implements CommandExecutor, TabCompleter {
             if (isAdmin) {
                 if ("permission".startsWith(prefix)) {
                     suggestions.add("permission");
+                }
+                if ("testraio".startsWith(prefix)) {
+                    suggestions.add("testraio");
                 }
                 for (String pName : auraManager.getAllKnownPlayerNamesSorted()) {
                     if (pName.toLowerCase(Locale.ROOT).startsWith(prefix)) {
