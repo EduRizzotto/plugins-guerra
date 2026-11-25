@@ -2,14 +2,19 @@ package com.eduardo.teams.aura;
 
 import com.eduardo.teams.aura.AuraGui.AuraMenuHolder;
 import com.eduardo.teams.aura.AuraManager.AuraColor;
+import com.eduardo.teams.manager.TeamManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
@@ -17,23 +22,64 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.UUID;
+
 /**
  * Gerencia os cliques nas interfaces de /aura e /aura permission,
- * alem de registrar automaticamente todo jogador que entra no servidor na lista do /aura permission.
+ * alem de registrar automaticamente todo jogador que entra no servidor na lista do /aura permission
+ * e disparar o raio visual ao abater um inimigo com a aura ativa.
  */
 public class AuraListener implements Listener {
 
     private final AuraManager auraManager;
     private final AuraGui auraGui;
+    private final TeamManager teamManager;
 
-    public AuraListener(AuraManager auraManager, AuraGui auraGui) {
+    public AuraListener(AuraManager auraManager, AuraGui auraGui, TeamManager teamManager) {
         this.auraManager = auraManager;
         this.auraGui = auraGui;
+        this.teamManager = teamManager;
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         auraManager.recordPlayerSeen(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL)
+    public void onEnemyDeathWithAura(PlayerDeathEvent event) {
+        Player victim = event.getPlayer();
+        Player directKiller = victim.getKiller();
+        UUID killerId = null;
+        if (directKiller != null && !directKiller.equals(victim)) {
+            killerId = directKiller.getUniqueId();
+        } else if (teamManager != null) {
+            UUID recentAttacker = teamManager.getRecentPvpAttacker(victim.getUniqueId());
+            if (recentAttacker != null && !recentAttacker.equals(victim.getUniqueId())) {
+                killerId = recentAttacker;
+            }
+        }
+
+        if (killerId == null) {
+            return;
+        }
+        if (teamManager != null && teamManager.isSameTeam(killerId, victim.getUniqueId())) {
+            return;
+        }
+
+        Player killer = (directKiller != null && directKiller.getUniqueId().equals(killerId))
+                ? directKiller
+                : Bukkit.getPlayer(killerId);
+        if (killer == null || !auraManager.hasActiveAura(killer)) {
+            return;
+        }
+
+        Location deathLoc = victim.getLocation();
+        World world = deathLoc.getWorld();
+        if (world != null) {
+            // strikeLightningEffect cria apenas o efeito visual e sonoro do raio (sem dano, sem fogo e sem queimar itens)
+            world.strikeLightningEffect(deathLoc);
+        }
     }
 
     @EventHandler

@@ -320,7 +320,7 @@ public final class TeamsPlugin extends JavaPlugin {
         pm.registerEvents(new DoomListener(this.doomManager, this.teamManager), this);
         pm.registerEvents(new DimensionLockListener(this.dimensionLockManager), this);
         pm.registerEvents(new KitListener(this.kitManager, kitGui), this);
-        pm.registerEvents(new AuraListener(this.auraManager, auraGui), this);
+        pm.registerEvents(new AuraListener(this.auraManager, auraGui, this.teamManager), this);
         pm.registerEvents(new ZoneListener(this.zoneManager), this);
         pm.registerEvents(new BaseListener(this, this.baseManager, this.teamManager), this);
         pm.registerEvents(new CtfListener(this.ctfManager), this);

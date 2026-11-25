@@ -432,6 +432,13 @@ public class AuraManager {
         return auraEnabledByPlayer.getOrDefault(key, true);
     }
 
+    public boolean hasActiveAura(Player player) {
+        if (player == null) {
+            return false;
+        }
+        return getActiveAuraColor(player.getName()) != null && isAuraEnabled(player.getName());
+    }
+
     public void setAuraEnabled(String playerName, boolean enabled) {
         if (playerName == null || playerName.isBlank()) {
             return;
