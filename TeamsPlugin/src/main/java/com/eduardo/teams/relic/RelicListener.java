@@ -99,9 +99,11 @@ public class RelicListener implements Listener {
     public void onDropRelic(PlayerDropItemEvent event) {
         if (relicManager.isRelicItem(event.getItemDrop().getItemStack())) {
             event.setCancelled(true);
-            event.getPlayer().sendActionBar(
+            Player player = event.getPlayer();
+            player.sendActionBar(
                     Component.text("👑 Você não pode largar a Relíquia manualmente! Segure-a até o fim!", NamedTextColor.RED)
             );
+            Bukkit.getScheduler().runTask(plugin, player::updateInventory);
         }
     }
 
@@ -118,22 +120,42 @@ public class RelicListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClickWithRelic(InventoryClickEvent event) {
         Inventory top = event.getView().getTopInventory();
-        if (top.getType() == InventoryType.CRAFTING) {
-            return; // Inventario proprio do jogador (2x2)
-        }
-
         ItemStack current = event.getCurrentItem();
         ItemStack cursor = event.getCursor();
         ItemStack hotbar = (event.getClick().isKeyboardClick() && event.getHotbarButton() >= 0 && event.getWhoClicked() instanceof Player p)
                 ? p.getInventory().getItem(event.getHotbarButton())
                 : null;
 
-        if (relicManager.isRelicItem(current) || relicManager.isRelicItem(cursor) || relicManager.isRelicItem(hotbar)
-                || event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY && relicManager.isRelicItem(current)) {
-            event.setCancelled(true);
-            if (event.getWhoClicked() instanceof Player p) {
-                p.sendActionBar(Component.text("👑 A Relíquia da Guerra não pode ser guardada em baús ou blocos!", NamedTextColor.RED));
+        boolean involvesRelic = relicManager.isRelicItem(current)
+                || relicManager.isRelicItem(cursor)
+                || relicManager.isRelicItem(hotbar);
+
+        if (!involvesRelic) {
+            return;
+        }
+
+        if (top.getType() == InventoryType.CRAFTING) {
+            InventoryAction action = event.getAction();
+            if (action == InventoryAction.DROP_ALL_SLOT
+                    || action == InventoryAction.DROP_ONE_SLOT
+                    || action == InventoryAction.DROP_ALL_CURSOR
+                    || action == InventoryAction.DROP_ONE_CURSOR) {
+                event.setCancelled(true);
+                if (event.getWhoClicked() instanceof Player p) {
+                    p.sendActionBar(Component.text("👑 Você não pode largar a Relíquia manualmente! Segure-a até o fim!", NamedTextColor.RED));
+                    Bukkit.getScheduler().runTask(plugin, p::updateInventory);
+                }
+                return;
             }
+            if (event.getSlotType() == InventoryType.SlotType.CRAFTING || event.getSlotType() == InventoryType.SlotType.RESULT) {
+                event.setCancelled(true);
+            }
+            return; // Inventario proprio do jogador
+        }
+
+        event.setCancelled(true);
+        if (event.getWhoClicked() instanceof Player p) {
+            p.sendActionBar(Component.text("👑 A Relíquia da Guerra não pode ser guardada em baús ou blocos!", NamedTextColor.RED));
         }
     }
 
