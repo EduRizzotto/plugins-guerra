@@ -174,6 +174,7 @@ public class CtfManager {
 
     private final Map<String, TeamFlag> flagsByTeamKey = new LinkedHashMap<>();
     private final Map<UUID, Integer> playerCompassTargetIndex = new HashMap<>();
+    private final Map<UUID, Long> compassActionBarUntil = new HashMap<>();
     private boolean active = false;
     private int totalDurationSeconds = DEFAULT_DURATION_SECONDS;
     private int remainingSeconds = 0;
@@ -235,6 +236,7 @@ public class CtfManager {
 
         flagsByTeamKey.clear();
         playerCompassTargetIndex.clear();
+        compassActionBarUntil.clear();
 
         for (TeamBase base : allBases) {
             Team team = teamManager.getTeamByName(base.getTeamKey());
@@ -527,13 +529,17 @@ public class CtfManager {
 
                 boolean ownTeamCarrying = carrierTeam != null && carrierTeam.getName().equalsIgnoreCase(flag.getTeamName());
                 if (ownTeamCarrying) {
-                    carrier.sendActionBar(Component.text("🛡 Recuperando a Bandeira de ", NamedTextColor.GREEN, TextDecoration.BOLD)
-                            .append(Component.text(flag.getTeamName(), teamColor, TextDecoration.BOLD))
-                            .append(Component.text("! Leve-a até sua Base" + baseCoords + " para devolvê-la ao pedestal!", NamedTextColor.YELLOW)));
+                    if (!isShowingCompassActionBar(carrier.getUniqueId())) {
+                        carrier.sendActionBar(Component.text("🛡 Recuperando a Bandeira de ", NamedTextColor.GREEN, TextDecoration.BOLD)
+                                .append(Component.text(flag.getTeamName(), teamColor, TextDecoration.BOLD))
+                                .append(Component.text("! Leve-a até sua Base" + baseCoords + " para devolvê-la ao pedestal!", NamedTextColor.YELLOW)));
+                    }
                 } else {
-                    carrier.sendActionBar(Component.text("🚩 Carregando Bandeira de ", NamedTextColor.GOLD, TextDecoration.BOLD)
-                            .append(Component.text(flag.getTeamName(), teamColor, TextDecoration.BOLD))
-                            .append(Component.text("! Corra para sua Base" + baseCoords + " [+" + POINTS_CAPTURE_FLAG + " pts]", NamedTextColor.YELLOW)));
+                    if (!isShowingCompassActionBar(carrier.getUniqueId())) {
+                        carrier.sendActionBar(Component.text("🚩 Carregando Bandeira de ", NamedTextColor.GOLD, TextDecoration.BOLD)
+                                .append(Component.text(flag.getTeamName(), teamColor, TextDecoration.BOLD))
+                                .append(Component.text("! Corra para sua Base" + baseCoords + " [+" + POINTS_CAPTURE_FLAG + " pts]", NamedTextColor.YELLOW)));
+                    }
 
                     // Avisa membros do time vítima com as coordenadas do ladrão
                     if (flagTeam != null) {
@@ -543,7 +549,7 @@ public class CtfManager {
                                 .append(Component.text(" em X: " + cLoc.getBlockX() + ", Y: " + cLoc.getBlockY() + ", Z: " + cLoc.getBlockZ() + "!", NamedTextColor.WHITE));
                         for (UUID memberId : flagTeam.getMembers()) {
                             Player member = Bukkit.getPlayer(memberId);
-                            if (member != null && member.isOnline()) {
+                            if (member != null && member.isOnline() && !isShowingCompassActionBar(member.getUniqueId())) {
                                 member.sendActionBar(victimAlert);
                             }
                         }
@@ -760,6 +766,7 @@ public class CtfManager {
         }
         flagsByTeamKey.clear();
         playerCompassTargetIndex.clear();
+        compassActionBarUntil.clear();
 
         if (this.compassManager != null) {
             this.compassManager.removeCompassFromAllPlayers(CompassEventType.CTF);
@@ -872,10 +879,23 @@ public class CtfManager {
         compassManager.giveOrUpdatePlayerCompass(player, CompassEventType.CTF, chosen.location(), chosen.label());
 
         Location loc = chosen.location();
+        compassActionBarUntil.put(player.getUniqueId(), System.currentTimeMillis() + 3500L);
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.3f);
         player.sendActionBar(Component.text("🧭 Bússola CTF [" + (nextIdx + 1) + "/" + targets.size() + "]: ", NamedTextColor.GOLD, TextDecoration.BOLD)
                 .append(Component.text(chosen.label(), chosen.color(), TextDecoration.BOLD))
                 .append(Component.text(" (X: " + loc.getBlockX() + ", Y: " + loc.getBlockY() + ", Z: " + loc.getBlockZ() + ")", NamedTextColor.AQUA)));
+    }
+
+    private boolean isShowingCompassActionBar(UUID playerId) {
+        Long until = compassActionBarUntil.get(playerId);
+        if (until == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() < until) {
+            return true;
+        }
+        compassActionBarUntil.remove(playerId);
+        return false;
     }
 
     /**
