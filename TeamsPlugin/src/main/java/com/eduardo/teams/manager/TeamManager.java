@@ -58,7 +58,7 @@ public class TeamManager {
     public static final int POINTS_KOTH_WIN = 50;
 
     private static final long COMBAT_TAG_DURATION_MS = 15_000L;
-    private static final long PVP_KILL_COOLDOWN_MS = 10L * 60L * 1000L; // 10 minutos por vitima
+    private static final long PVP_KILL_COOLDOWN_MS = 5L * 60L * 1000L; // 5 minutos por vitima
     private final Map<UUID, PlayerStats> playerStatsMap = new HashMap<>();
     private final Map<UUID, CombatTag> lastDamageMap = new HashMap<>();
     // Mapa "killerUUID:victimUUID" -> timestamp do ultimo abate que concedeu pontos e quest
@@ -370,14 +370,14 @@ public class TeamManager {
     }
 
     /**
-     * Verifica se o assassino esta em cooldown de 10 minutos para ganhar pontos/progresso de quest sobre esta mesma vitima.
+     * Verifica se o assassino esta em cooldown de 5 minutos para ganhar pontos/progresso de quest sobre esta mesma vitima.
      */
     public boolean isPvpKillOnCooldown(UUID killerId, UUID victimId) {
         return getPvpKillCooldownRemainingSeconds(killerId, victimId) > 0;
     }
 
     /**
-     * Retorna quantos segundos faltam para o cooldown de 10 minutos entre (killerId -> victimId) expirar.
+     * Retorna quantos segundos faltam para o cooldown de 5 minutos entre (killerId -> victimId) expirar.
      */
     public int getPvpKillCooldownRemainingSeconds(UUID killerId, UUID victimId) {
         if (killerId == null || victimId == null) {
@@ -412,7 +412,7 @@ public class TeamManager {
      * Contabiliza 1 kill para o assassino e 1 morte para a vitima (em PvP entre equipes diferentes),
      * somando +20 pontos na equipe do assassino e descontando -10 pontos da equipe da vitima.
      * Ambos os jogadores devem pertencer a times diferentes (jogadores sem time ou do mesmo time nao contam).
-     * Possui cooldown de 10 minutos para o mesmo par (assassino -> vitima).
+     * Possui cooldown de 5 minutos para o mesmo par (assassino -> vitima).
      */
     public void recordPvpKillAndDeath(UUID killerId, UUID victimId) {
         if (killerId == null || victimId == null || killerId.equals(victimId)) {
@@ -441,7 +441,7 @@ public class TeamManager {
                 int mins = remainingSec / 60;
                 int secs = remainingSec % 60;
                 String timeStr = mins > 0 ? (mins + "m " + secs + "s") : (secs + "s");
-                killerPlayer.sendMessage(Component.text("⏳ Voce ja abateu " + victimName + " nos ultimos 10 minutos! Pontos de PvP e progresso de quest contra este jogador estarao disponiveis novamente em " + timeStr + ".", NamedTextColor.RED));
+                killerPlayer.sendMessage(Component.text("⏳ Voce ja abateu " + victimName + " nos ultimos 5 minutos! Pontos de PvP e progresso de quest contra este jogador estarao disponiveis novamente em " + timeStr + ".", NamedTextColor.RED));
             }
             return;
         }
